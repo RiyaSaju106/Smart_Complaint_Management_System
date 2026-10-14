@@ -2,8 +2,8 @@ from functools import wraps
 
 from flask import jsonify, session
 
-RESIDENT = "Resident"
-ADMINISTRATOR = "Administrator"
+RESIDENT = "resident"
+ADMINISTRATOR = "administrator"
 
 
 def error(status, code, message):

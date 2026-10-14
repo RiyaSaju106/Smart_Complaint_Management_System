@@ -149,4 +149,25 @@ The error code and message should be appropriate to the actual failure.
 - Exact error codes and response conventions.
 - Password policy and role assignment rules.
 
-**Note:** This document is an initial proposal for team review. Confirm all endpoint details and requirement mappings against the approved SCMS SRS before implementation.
+## 8. Requirement Traceability
+
+| Requirement ID | Design element | Verification |
+|---|---|---|
+| FR-001 | `POST /api/auth/register` | TC-AUTH-01: Valid registration |
+| FR-002 | Registration validation | TC-AUTH-02: Missing or invalid required information |
+| FR-003 | Login and logout endpoints | TC-AUTH-03: Successful login; TC-AUTH-04: Logout |
+| FR-004 | Role-based authorization | TC-AUTH-05: Verify role permissions |
+| SEC-001 | Secure password hashing | TC-SEC-01: Verify passwords are not stored in plaintext |
+| SEC-002 | Role-based access control | TC-SEC-02: Resident cannot access staff/admin features |
+| SEC-003 | Server-side input validation | TC-SEC-03: Invalid input is rejected or safely handled |
+| SEC-004 | Session protection | TC-SEC-04: Invalid or expired sessions cannot access protected pages |
+
+These are proposed test case identifiers for planning. Detailed steps and expected results will be defined during testing.
+
+SEC-005 is assigned to complaint attachment validation and will be covered by the Complaint module.
+
+## 9. Design clarification
+
+The profile endpoints (`GET /api/users/me` and `PATCH /api/users/me`) are proposed endpoints. Confirm their scope with the team and the approved SRS before implementation.
+
+The API paths, request fields, response formats and authentication mechanism remain subject to team agreement.

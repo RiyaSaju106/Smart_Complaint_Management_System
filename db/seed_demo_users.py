@@ -19,6 +19,9 @@ DEMO_USERS = (
     ("Demo Administrator", "administrator", "DEMO_ADMIN_EMAIL", "DEMO_ADMIN_PASSWORD"),
 )
 
+# Residents must have contact details (SRS Appendix B). Placeholder values, not real data.
+DEMO_RESIDENT_CONTACT = ("0000000000", "Demo Block A, Unit 101")
+
 
 def main():
     missing = [
@@ -34,18 +37,32 @@ def main():
         with conn.cursor() as cur:
             for name, role, email_var, password_var in DEMO_USERS:
                 email = os.environ[email_var].strip().lower()
+                contact_number, unit_address = (
+                    DEMO_RESIDENT_CONTACT if role == "resident" else (None, None)
+                )
                 cur.execute("SELECT 1 FROM users WHERE email = %s", (email,))
                 if cur.fetchone():
+                    if role == "resident":
+                        # Fill contact details only where an older run left them empty.
+                        cur.execute(
+                            "UPDATE users SET contact_number = %s, unit_address = %s "
+                            "WHERE email = %s AND contact_number IS NULL AND unit_address IS NULL",
+                            (contact_number, unit_address, email),
+                        )
+                        if cur.rowcount:
+                            print(f"Updated {role} {email}: added demo contact details")
                     print(f"Skipped {role} {email}: already exists")
                     continue
                 cur.execute(
-                    "INSERT INTO users (user_id, name, email, password_hash, role) "
-                    "VALUES (%s, %s, %s, %s, %s)",
+                    "INSERT INTO users (user_id, name, email, password_hash, contact_number, "
+                    "unit_address, role) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                     (
                         str(uuid.uuid4()),
                         name,
                         email,
                         hash_password(os.environ[password_var]),
+                        contact_number,
+                        unit_address,
                         role,
                     ),
                 )

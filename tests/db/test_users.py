@@ -10,7 +10,7 @@ INSERT_USER = (
 )
 
 
-def insert_user(conn, email="resident@example.com", password="Secret123!", role="Resident"):
+def insert_user(conn, email="resident@example.com", password="Secret123!", role="resident"):
     user_id = str(uuid.uuid4())
     with conn.cursor() as cur:
         cur.execute(
@@ -28,14 +28,14 @@ def fetch_user(conn, email):
 
 
 def test_users_insert_and_retrieve(conn):
-    user_id = insert_user(conn, role="Administrator")
+    user_id = insert_user(conn, role="administrator")
 
     user = fetch_user(conn, "resident@example.com")
 
     assert user["user_id"] == user_id
     assert len(user["user_id"]) == 36
     assert user["name"] == "Test User"
-    assert user["role"] == "Administrator"
+    assert user["role"] == "administrator"
     assert user["created_at"] is not None
     assert user["updated_at"] is not None
 
@@ -65,13 +65,16 @@ def test_users_duplicate_email_rejected_case_insensitive(conn):
         insert_user(conn, email="DUP@example.com")
 
 
-@pytest.mark.parametrize("role", ["resident", "Admin", "Staff", ""])
+@pytest.mark.parametrize(
+    "role",
+    ["Resident", "Administrator", "Maintenance Staff", "maintenance staff", "admin", "staff", ""],
+)
 def test_users_invalid_role_rejected(conn, role):
     with pytest.raises(pymysql.err.DataError):
         insert_user(conn, role=role)
 
 
-@pytest.mark.parametrize("role", ["Resident", "Maintenance Staff", "Administrator"])
+@pytest.mark.parametrize("role", ["resident", "maintenance_staff", "administrator"])
 def test_users_all_contract_roles_accepted(conn, role):
     insert_user(conn, role=role)
 

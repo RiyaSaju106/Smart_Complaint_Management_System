@@ -1,4 +1,4 @@
-"""Create the demo Resident and Administrator accounts. Safe to run repeatedly.
+"""Create the demo resident and administrator accounts. Safe to run repeatedly.
 
 Usage: python -m db.seed_demo_users
 Reads DEMO_RESIDENT_EMAIL, DEMO_RESIDENT_PASSWORD, DEMO_ADMIN_EMAIL and
@@ -15,8 +15,8 @@ from db.passwords import hash_password
 from db.connection import get_connection
 
 DEMO_USERS = (
-    ("Demo Resident", "Resident", "DEMO_RESIDENT_EMAIL", "DEMO_RESIDENT_PASSWORD"),
-    ("Demo Administrator", "Administrator", "DEMO_ADMIN_EMAIL", "DEMO_ADMIN_PASSWORD"),
+    ("Demo Resident", "resident", "DEMO_RESIDENT_EMAIL", "DEMO_RESIDENT_PASSWORD"),
+    ("Demo Administrator", "administrator", "DEMO_ADMIN_EMAIL", "DEMO_ADMIN_PASSWORD"),
 )
 
 

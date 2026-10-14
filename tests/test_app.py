@@ -36,7 +36,12 @@ def test_register_rejects_missing_fields(app):
         "error": {
             "code": "VALIDATION_ERROR",
             "message": "Please check the submitted fields.",
-            "fields": ["email", "password"]
+            "fields": [
+                        "email",
+                        "password",
+                        "contact_number",
+                        "unit_address"
+                    ]
         }
     }
 

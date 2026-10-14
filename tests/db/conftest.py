@@ -1,8 +1,8 @@
 """Fixtures for database tests.
 
 Tests run against TEST_DB_NAME (default scms_test_db), never DB_NAME.
-The test database is created if missing, the schema is applied once per
-session, and the users table is emptied before each test.
+Each test session drops and recreates the test database and applies the schema from scratch, which
+also proves the schema builds on a clean database. All tables are emptied before each test.
 """
 import os
 
@@ -13,6 +13,12 @@ from db.connection import get_connection, get_settings
 
 TEST_DB_NAME = os.environ.get("TEST_DB_NAME", "scms_test_db")
 
+# Child tables first, so deletes never hit a foreign key.
+TABLES = (
+    "feedback", "notifications", "resolutions", "status_history", "assignments",
+    "attachments", "complaints", "categories", "users", "departments",
+)
+
 
 @pytest.fixture(scope="session")
 def test_db_name():
@@ -21,8 +27,9 @@ def test_db_name():
     conn = get_connection(use_database=False)
     try:
         with conn.cursor() as cur:
+            cur.execute(f"DROP DATABASE IF EXISTS `{TEST_DB_NAME}`")
             cur.execute(
-                f"CREATE DATABASE IF NOT EXISTS `{TEST_DB_NAME}` "
+                f"CREATE DATABASE `{TEST_DB_NAME}` "
                 "CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
             )
         conn.commit()
@@ -42,7 +49,8 @@ def conn(test_db_name):
     with conn.cursor() as cur:
         cur.execute("SELECT DATABASE() AS db")
         assert cur.fetchone()["db"] == test_db_name
-        cur.execute("DELETE FROM users")
+        for table in TABLES:
+            cur.execute(f"DELETE FROM {table}")
     conn.commit()
     yield conn
     conn.rollback()

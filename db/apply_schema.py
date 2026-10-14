@@ -89,22 +89,33 @@ def _constraint_exists(cur, table, name):
     return cur.fetchone() is not None
 
 
-def upgrade_users(cur):
+def legacy_role_mapping(cur):
+    """Check an existing users table's roles before anything is changed. Read-only.
+
+    Returns {stored value: lowercase role} when the role column needs upgrading, or None when there
+    is no users table yet or it is already current. Raises MigrationError if any stored value is not
+    a known role.
+    """
+    if _column_type(cur, "users", "role") is None or _role_column_is_current(cur):
+        return None
+    # Read every distinct stored value exactly (binary), so 'Admin' and 'admin' are both seen.
+    cur.execute("SELECT DISTINCT CONVERT(role USING utf8mb4) COLLATE utf8mb4_bin AS r FROM users")
+    mapping = {row["r"]: canonical_role(row["r"]) for row in cur.fetchall()}
+    unknown = sorted(repr(old) for old, new in mapping.items() if new is None)
+    if unknown:
+        raise MigrationError(
+            f"users.role has values that are not a known role: {', '.join(unknown)}. "
+            "Nothing was changed. Fix those rows, then run this again."
+        )
+    return mapping
+
+
+def upgrade_users(cur, role_mapping):
     """Bring an older users table up to the current schema. Returns the steps applied."""
     applied = []
 
-    if not _role_column_is_current(cur):
-        # Read every distinct stored value exactly (binary), so 'Admin' and 'admin' are both seen.
-        cur.execute(
-            "SELECT DISTINCT CONVERT(role USING utf8mb4) COLLATE utf8mb4_bin AS r FROM users"
-        )
-        mapping = {row["r"]: canonical_role(row["r"]) for row in cur.fetchall()}
-        unknown = sorted(repr(old) for old, new in mapping.items() if new is None)
-        if unknown:
-            raise MigrationError(
-                f"users.role has values that are not a known role: {', '.join(unknown)}. "
-                "Nothing was changed. Fix those rows, then run this again."
-            )
+    if role_mapping is not None:
+        mapping = role_mapping
         # Widen to text first, so old and new values can coexist while converting.
         cur.execute(
             "ALTER TABLE users MODIFY role VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL"
@@ -137,9 +148,12 @@ def upgrade_users(cur):
 
 def apply_schema(conn):
     with conn.cursor() as cur:
+        # Validate before any DDL: MySQL commits each schema change immediately, so a check that
+        # failed halfway through would leave the database partially upgraded.
+        role_mapping = legacy_role_mapping(cur)
         for statement in schema_statements():
             cur.execute(statement)
-        applied = upgrade_users(cur)
+        applied = upgrade_users(cur, role_mapping)
     conn.commit()
     return applied
 

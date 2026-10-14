@@ -176,15 +176,34 @@ def test_migration_from_older_schema_preserves_users(empty_db, version):
     assert after_second == after_first
 
 
+def full_columns(conn):
+    return query(
+        conn,
+        "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, COLLATION_NAME, IS_NULLABLE "
+        "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+        "ORDER BY TABLE_NAME, ORDINAL_POSITION",
+    )
+
+
 def test_migration_with_unknown_role_changes_nothing(empty_db):
     conn = empty_db
     create_legacy_users(conn, "VARCHAR(20)", ["Resident", "superuser", "Janitor"])
     before = snapshot(conn)
-    column_before = role_column(conn)
+    schema_before = full_columns(conn)
 
     with pytest.raises(MigrationError) as excinfo:
         apply_schema(conn)
 
     assert "'Janitor'" in str(excinfo.value) and "'superuser'" in str(excinfo.value)
+    # Nothing at all was changed: no new tables, no altered columns, no changed rows.
+    assert tables(conn) == ["users"]
+    assert full_columns(conn) == schema_before
     assert snapshot(conn) == before
-    assert role_column(conn) == column_before
+
+    # Rerunning after the bad values are fixed completes the full upgrade.
+    with conn.cursor() as cur:
+        cur.execute("UPDATE users SET role = 'Resident' WHERE role IN ('superuser', 'Janitor')")
+    conn.commit()
+    assert "added fk_users_department" in apply_schema(conn)
+    assert tables(conn) == ALL_TABLES
+    assert apply_schema(conn) == []

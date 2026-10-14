@@ -17,8 +17,11 @@ def register():
 
     if missing_fields:
         return jsonify({
-            "error": "Missing required fields",
-            "fields": missing_fields
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Please check the submitted fields.",
+                "fields": missing_fields
+            }
         }), 400
 
     return jsonify({

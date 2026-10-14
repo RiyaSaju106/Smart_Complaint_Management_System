@@ -11,7 +11,7 @@ Layered modular monolith: browser → Flask routes → service layer (business r
 
 | Module | Owner | Requirements | Contract document |
 |---|---|---|---|
-| Auth/User | Riya | FR-001–FR-004, SEC-001–SEC-005 | `auth-user-contract.md` (PR #12) |
+| Auth/User | Riya | FR-001–FR-004, SEC-001–SEC-005 | `auth-user-contract.md` (PR #12, merged) |
 | Complaint | Riya | FR-005–FR-008 | Riya's SAD 4.3 (not yet in the repo) |
 | Category/Assignment | Rohit | FR-009–FR-011 | `category-assignment-search-tracking-contract.md` (PR #21) |
 | Processing/Status | Ritu | FR-012–FR-014, FR-020 | Ritu's SAD 4.3 (not yet in the repo) |
@@ -71,12 +71,13 @@ Admin/Reporting reads all tables but writes only `users`.
 | 1 | `notification-feedback-admin-contract.md` (PR #13) | Roles `resident`, `staff`, `admin` (e.g. `role=resident\|staff\|admin`, `"role": "staff"`) | Use `maintenance_staff` and `administrator` | Rohan |
 | 2 | PR #13 | Integer IDs (`"id": 12`, `"complaint_id": 4`) | UUID strings | Rohan |
 | 3 | PR #13, section 8 | Feedback columns `comment`, `created_at`; notification table names singular | Database uses `comments`, `submitted_at` (SAD data dictionary) and plural table names. The API may keep `comment` if the service maps it, but say so. | Rohan |
-| 4 | `auth-user-contract.md` (PR #12) | `"id": 1` | `"user_id": "<uuid>"` | Riya |
+| 4 | `auth-user-contract.md` (PR #12, merged into `main`) | `"id": 1` | `"user_id": "<uuid>"` | Riya |
 | 5 | Riya's SAD 4.3 Complaint module | `status=Submitted`; both 400 and 422 for invalid input | `status: "submitted"`; use 400 only (unknown category → 400, see TC-ASG-02) | Riya |
 | 6 | Ritu's SAD 4.3 | Base path `/api/v1/...` | `/api/...` like every other module | Ritu |
 | 7 | Ritu's SAD 4.3 | Endpoint titles swapped: "Close Complaint Workflow" is on `/status`, "Update Complaint Status" is on `/close` | Swap the titles | Ritu |
 | 8 | Ritu's SAD 4.4 | Error body `error_code`, `message`, `timestamp`; mentions SLF4J/Logback | Use the shared error body; Python `logging` (the stack is Flask) | Ritu |
 | 9 | All | Status values written capitalized | Lowercase values from section 3 | All |
+| 10 | `app/access.py` and `tests/test_role_pages.py` (branch `rohan-day1-setup`) | `RESIDENT = "Resident"`, `ADMINISTRATOR = "Administrator"`; tests log in with `role=Administrator` | `"resident"`, `"administrator"`. **The database stores lowercase, so the current checks would reject every real user at integration.** | Rohan |
 
 Category/Assignment and Search/Tracking already follow section 3.
 
@@ -84,5 +85,5 @@ Category/Assignment and Search/Tracking already follow section 3.
 
 - [ ] Each owner confirms their row in section 2 and their tables in section 4.
 - [ ] Team agrees on the conventions in section 3, especially lowercase status values.
-- [ ] Items 1–9 in section 6 are fixed in the owners' contract documents.
+- [ ] Items 1–10 in section 6 are fixed in the owners' contract documents.
 - [ ] PRs #12, #13 and #21 are reviewed and merged.

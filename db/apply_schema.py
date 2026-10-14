@@ -4,10 +4,13 @@ Usage: python -m db.apply_schema [--database NAME]
 Defaults to DB_NAME from .env.
 
 After creating any missing tables, it upgrades a users table created by an earlier version of the
-schema (capitalized roles, missing columns). Every upgrade step checks first, keeps all rows, and
-does nothing when the table is already current.
+schema: legacy role values (any case, spaces or the short forms admin/staff, stored as ENUM or
+VARCHAR) become the lowercase roles, and missing columns are added. Every step checks first, keeps
+all rows, and does nothing when the table is already current. If a role value cannot be mapped,
+nothing is changed and the command fails with the values it could not map.
 """
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -15,12 +18,31 @@ from db.connection import get_connection
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
+ROLES = ("resident", "maintenance_staff", "administrator")
+ROLE_COLUMN_TYPE = "enum('resident','maintenance_staff','administrator')"
 ROLE_ENUM = "ENUM('resident', 'maintenance_staff', 'administrator') COLLATE utf8mb4_bin NOT NULL"
-OLD_ROLES = {
-    "Resident": "resident",
-    "Maintenance Staff": "maintenance_staff",
-    "Administrator": "administrator",
+
+# Legacy spellings, after lower-casing and turning spaces/hyphens into underscores.
+# Covers 'Resident', 'Maintenance Staff', 'Administrator' (earlier schema), any upper/lower case,
+# and the short forms 'admin' and 'staff' used in early API drafts.
+ROLE_ALIASES = {
+    **{role: role for role in ROLES},
+    "admin": "administrator",
+    "staff": "maintenance_staff",
+    "maintenance": "maintenance_staff",
+    "maintenancestaff": "maintenance_staff",
 }
+
+
+class MigrationError(Exception):
+    pass
+
+
+def canonical_role(value):
+    """Return the lowercase role for a legacy role value, or None if it is not recognised."""
+    if value is None:
+        return None
+    return ROLE_ALIASES.get(re.sub(r"[\s\-]+", "_", value.strip().lower()))
 
 # Columns added to users after the first version, in table order.
 USERS_NEW_COLUMNS = (
@@ -49,6 +71,15 @@ def _column_type(cur, table, column):
     return row["t"] if row else None
 
 
+def _role_column_is_current(cur):
+    cur.execute(
+        "SELECT COLUMN_TYPE AS t, COLLATION_NAME AS c, IS_NULLABLE AS n FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role'"
+    )
+    row = cur.fetchone()
+    return (row["t"], row["c"], row["n"]) == (ROLE_COLUMN_TYPE, "utf8mb4_bin", "NO")
+
+
 def _constraint_exists(cur, table, name):
     cur.execute(
         "SELECT 1 FROM information_schema.TABLE_CONSTRAINTS "
@@ -62,16 +93,32 @@ def upgrade_users(cur):
     """Bring an older users table up to the current schema. Returns the steps applied."""
     applied = []
 
-    if "'Resident'" in (_column_type(cur, "users", "role") or ""):
-        old_and_new = ", ".join(f"'{v}'" for v in [*OLD_ROLES.values(), *OLD_ROLES])
-        cur.execute(f"ALTER TABLE users MODIFY role ENUM({old_and_new}) COLLATE utf8mb4_bin NOT NULL")
-        for old, new in OLD_ROLES.items():
-            # updated_at is kept: this is a format change, not a user edit.
-            cur.execute(
-                "UPDATE users SET role = %s, updated_at = updated_at WHERE role = %s", (new, old)
+    if not _role_column_is_current(cur):
+        # Read every distinct stored value exactly (binary), so 'Admin' and 'admin' are both seen.
+        cur.execute(
+            "SELECT DISTINCT CONVERT(role USING utf8mb4) COLLATE utf8mb4_bin AS r FROM users"
+        )
+        mapping = {row["r"]: canonical_role(row["r"]) for row in cur.fetchall()}
+        unknown = sorted(repr(old) for old, new in mapping.items() if new is None)
+        if unknown:
+            raise MigrationError(
+                f"users.role has values that are not a known role: {', '.join(unknown)}. "
+                "Nothing was changed. Fix those rows, then run this again."
             )
+        # Widen to text first, so old and new values can coexist while converting.
+        cur.execute(
+            "ALTER TABLE users MODIFY role VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL"
+        )
+        converted = 0
+        for old, new in mapping.items():
+            if old != new:
+                # updated_at is kept: this is a format change, not a user edit.
+                cur.execute(
+                    "UPDATE users SET role = %s, updated_at = updated_at WHERE role = %s", (new, old)
+                )
+                converted += cur.rowcount
         cur.execute(f"ALTER TABLE users MODIFY role {ROLE_ENUM}")
-        applied.append("converted roles to lowercase")
+        applied.append(f"converted users.role to lowercase ENUM ({converted} row(s) changed)")
 
     for column, definition in USERS_NEW_COLUMNS:
         if _column_type(cur, "users", column) is None:
@@ -104,7 +151,11 @@ def main():
 
     conn = get_connection(database=args.database)
     try:
-        applied = apply_schema(conn)
+        try:
+            applied = apply_schema(conn)
+        except MigrationError as exc:
+            print(f"Schema upgrade FAILED: {exc}", file=sys.stderr)
+            return 1
         with conn.cursor() as cur:
             cur.execute("SELECT DATABASE() AS db")
             db_name = cur.fetchone()["db"]

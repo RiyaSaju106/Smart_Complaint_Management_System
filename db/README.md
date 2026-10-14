@@ -87,7 +87,7 @@ Every script is safe to run again: nothing is dropped, deleted or duplicated in 
 
 | Command | What it does |
 |---|---|
-| `python -m db.apply_schema [--database NAME]` | Runs `schema.sql` (`CREATE TABLE IF NOT EXISTS`), then upgrades an older `users` table: capitalized roles → lowercase, missing columns and foreign key added. Prints which upgrades ran. |
+| `python -m db.apply_schema [--database NAME]` | Runs `schema.sql` (`CREATE TABLE IF NOT EXISTS`), then upgrades an older `users` table: legacy role values are converted to the lowercase roles (any case, `Maintenance Staff` / `maintenance-staff`, the short forms `admin` / `staff`, stored as ENUM or VARCHAR), and missing columns and the department foreign key are added. Users, password hashes and timestamps are kept. If a role value can't be mapped (e.g. `superuser`), it changes nothing and exits 1, listing the values to fix. Prints which upgrades ran. |
 | `python -m db.seed_reference_data` | Creates any missing categories (Electrical, Water Supply, Cleaning, Security, Other) and departments (Electrical, Plumbing, Housekeeping, Security). "Plumbing" is not a predefined category because TC-ASG-03 creates it. |
 | `python -m db.seed_demo_users` | Creates the two demo users with hashed passwords, generated UUIDs and placeholder contact details for the resident. Skips existing emails. Never prints passwords or hashes. |
 | `python -m db.check_connection` | Prints database and server version, then retrieves `DEMO_RESIDENT_EMAIL`. Exits non-zero on failure. |

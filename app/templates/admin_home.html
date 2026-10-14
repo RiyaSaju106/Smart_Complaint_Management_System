@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}SCMS – Administrator{% endblock %}
+{% block body %}
+<header class="admin">
+  <strong>Smart Complaint Management System</strong>
+  <span class="badge">Administrator</span>
+</header>
+<main>
+  <h1>Administrator Dashboard</h1>
+  <p>Signed in as {{ name or "Administrator" }}.</p>
+  <div class="card">Manage users and staff <em>(coming in Sprint 3)</em></div>
+  <div class="card">Assign complaints <em>(coming in Sprint 2)</em></div>
+  <div class="card">Reports and complaint counts <em>(coming in Sprint 3)</em></div>
+</main>
+{% endblock %}

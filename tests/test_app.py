@@ -1,13 +1,20 @@
+
+import pytest
+
 from app import create_app
 
 
-def test_app_creation():
-    app = create_app()
+@pytest.fixture
+def app(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-pytest")
+    return create_app()
+
+
+def test_app_creation(app):
     assert app is not None
 
 
-def test_auth_and_user_routes_registered():
-    app = create_app()
+def test_auth_and_user_routes_registered(app):
     rules = {rule.rule for rule in app.url_map.iter_rules()}
 
     assert "/api/auth/register" in rules
@@ -16,8 +23,7 @@ def test_auth_and_user_routes_registered():
     assert "/api/users/me" in rules
 
 
-def test_register_rejects_missing_fields():
-    app = create_app()
+def test_register_rejects_missing_fields(app):
     client = app.test_client()
 
     response = client.post(
@@ -26,3 +32,17 @@ def test_register_rejects_missing_fields():
     )
 
     assert response.status_code == 400
+    assert response.get_json() == {
+        "error": {
+            "code": "VALIDATION_ERROR",
+            "message": "Please check the submitted fields.",
+            "fields": ["email", "password"]
+        }
+    }
+
+
+def test_app_requires_secret_key(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        create_app()

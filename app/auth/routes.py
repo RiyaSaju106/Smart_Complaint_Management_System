@@ -9,7 +9,6 @@ def register():
     data = request.get_json(silent=True) or {}
 
     required_fields = ["name", "email", "password"]
-
     missing_fields = [
         field for field in required_fields
         if not data.get(field)
@@ -17,8 +16,11 @@ def register():
 
     if missing_fields:
         return jsonify({
-            "error": "Missing required fields",
-            "fields": missing_fields
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Please check the submitted fields.",
+                "fields": missing_fields
+            }
         }), 400
 
     return jsonify({

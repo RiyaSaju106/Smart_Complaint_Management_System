@@ -1,192 +1,179 @@
-import uuid
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from typing import Optional
+"""Processing & Status module (SAD 3.4, 4.3): HTTP layer.
 
-from models import Complaint, Assignment, StatusHistory, Resolution, ComplaintStatus
-from schemas import StatusUpdateRequest, CloseComplaintRequest, StandardAPIResponse
-# Assume get_db and get_current_user are provided by Core Auth Module
-from deps import get_db, get_current_user
+Staff view assigned complaints and move them assigned -> in_progress -> resolved; the resident who
+raised the complaint, or an administrator, closes it.
 
-router = APIRouter(prefix="/api/v1", tags=["Processing & Status Module"])
+How the module is split:
+  routes.py   this file: authentication/role checks, the order of checks, transactions, responses
+  schema.py   request validation and the allowed status transitions
+  queries.py  PyMySQL SQL, one small function per query
 
-# Valid state transitions
-ALLOWED_TRANSITIONS = {
-    ComplaintStatus.ASSIGNED: [ComplaintStatus.IN_PROGRESS],
-    ComplaintStatus.IN_PROGRESS: [ComplaintStatus.RESOLVED],
-}
+Shared project pieces used here: db.connection.get_connection(), and auth.roles.role_required /
+error (server-side session role, errors shaped {"error": {"code", "message"}}).
+"""
+from flask import Blueprint, jsonify, request, session
 
-@router.get("/staff/complaints/assigned")
-def get_assigned_complaints(
-    status_filter: Optional[str] = Query(None, alias="status"),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    if current_user["role"] != "maintenance_staff":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a maintenance staff member.")
+from app.access import ADMINISTRATOR, RESIDENT, error, role_required
+from db.connection import get_connection
+from process import queries, schema
 
-    query = (
-        db.query(Complaint)
-        .join(Assignment, Complaint.complaint_id == Assignment.complaint_id)
-        .filter(Assignment.staff_id == current_user["user_id"], Assignment.is_current == True)
+processing_bp = Blueprint("processing", __name__, url_prefix="/api/v1")
+
+MAINTENANCE_STAFF = "maintenance_staff"
+
+
+def _body():
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
+
+def _validation_error(message):
+    return error(400, "VALIDATION_ERROR", message)
+
+
+def _invalid_transition(old_status, new_status):
+    return error(
+        400,
+        "INVALID_STATE_TRANSITION",
+        f"Cannot transition complaint state from '{old_status}' to '{new_status}'.",
     )
 
-    if status_filter:
-        try:
-            target_status = ComplaintStatus(status_filter.lower())
-            query = query.filter(Complaint.status == target_status)
-        except ValueError:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status filter: {status_filter}")
 
-    complaints = query.all()
+def _iso(value):
+    return value.isoformat() if value is not None else None
+
+
+@processing_bp.get("/staff/complaints/assigned")
+@role_required(MAINTENANCE_STAFF)
+def assigned_complaints():
+    status_filter = request.args.get("status")
+    problem = schema.parse_status_filter(status_filter)
+    if problem:
+        return _validation_error(problem)
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            rows = queries.list_assigned(cur, session["user_id"], status_filter)
+    finally:
+        conn.close()
+
     data = [
         {
-            "complaint_id": c.complaint_id,
-            "title": c.title,
-            "category_id": c.category_id,
-            "location": c.location,
-            "status": c.status.value,
-            "created_at": c.created_at.isoformat()
+            "complaint_id": r["complaint_id"],
+            "title": r["title"],
+            "category": r["category"],
+            "category_id": r["category_id"],
+            "location": r["location"],
+            "status": r["status"],
+            "created_at": _iso(r["created_at"]),
         }
-        for c in complaints
+        for r in rows
     ]
-    return {"status": "success", "data": data}
+    return jsonify({"status": "success", "data": data}), 200
 
 
-@router.patch("/staff/complaints/{complaint_id}/status")
-def update_complaint_status(
-    complaint_id: str,
-    payload: StatusUpdateRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    if current_user["role"] != "maintenance_staff":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a maintenance staff member.")
+@processing_bp.patch("/staff/complaints/<complaint_id>/status")
+@role_required(MAINTENANCE_STAFF)
+def update_status(complaint_id):
+    parsed, problem = schema.parse_status_update(_body())
+    if problem:
+        return _validation_error(problem)
+    new_status = parsed["status"]
+    user_id = session["user_id"]
 
-    complaint = db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
-    if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint ID does not exist.")
-
-    # Access control: Verify this staff member is currently assigned to the complaint
-    current_assignment = (
-        db.query(Assignment)
-        .filter(Assignment.complaint_id == complaint_id, Assignment.is_current == True)
-        .first()
-    )
-    if not current_assignment or current_assignment.staff_id != current_user["user_id"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff member not assigned to this complaint.")
-
+    conn = get_connection()
     try:
-        new_status = ComplaintStatus(payload.status.lower())
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid target status: {payload.status}")
+        with conn.cursor() as cur:
+            complaint = queries.lock_complaint(cur, complaint_id)
+            if complaint is None:
+                return error(404, "NOT_FOUND", "Complaint ID does not exist.")
 
-    # Validate lifecycle transition
-    allowed = ALLOWED_TRANSITIONS.get(complaint.status, [])
-    if new_status not in allowed:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid state transition sequence from '{complaint.status.value}' to '{new_status.value}'."
-        )
+            if queries.current_staff_id(cur, complaint_id) != user_id:
+                return error(403, "FORBIDDEN", "You are not assigned to this complaint.")
 
-    # Resolution details check
-    if new_status == ComplaintStatus.RESOLVED:
-        if not payload.resolution_details or not payload.resolution_details.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing mandatory resolution details for status 'resolved'."
+            old_status = complaint["status"]
+            if not schema.can_transition(old_status, new_status):
+                return _invalid_transition(old_status, new_status)
+
+            if new_status == "resolved":
+                if not parsed["resolution_details"]:
+                    return _validation_error(
+                        "Resolution details are required to resolve a complaint."
+                    )
+                queries.insert_resolution(cur, complaint_id, user_id, parsed["resolution_details"])
+
+            queries.insert_history(
+                cur, complaint_id, old_status, new_status, user_id, parsed["remarks"]
             )
-        
-        # Insert into resolutions table
-        resolution = Resolution(
-            resolution_id=str(uuid.uuid4()),
-            complaint_id=complaint_id,
-            resolved_by=current_user["user_id"],
-            details=payload.resolution_details.strip(),
-            resolved_at=datetime.utcnow()
-        )
-        db.add(resolution)
+            updated_at = queries.set_status(cur, complaint_id, new_status)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
-    # Append to status_history table
-    history = StatusHistory(
-        history_id=str(uuid.uuid4()),
-        complaint_id=complaint_id,
-        old_status=complaint.status,
-        new_status=new_status,
-        changed_by=current_user["user_id"],
-        remarks=payload.remarks,
-        changed_at=datetime.utcnow()
-    )
-    db.add(history)
-
-    # Update complaint current state
-    old_status_val = complaint.status.value
-    complaint.status = new_status
-    complaint.updated_at = datetime.utcnow()
-
-    db.commit()
-
-    return {
+    return jsonify({
         "status": "success",
-        "message": f"Complaint status updated successfully from {old_status_val} to {new_status.value}.",
+        "message": f"Complaint status updated from {old_status} to {new_status}.",
         "data": {
-            "complaint_id": complaint.complaint_id,
-            "status": complaint.status.value,
-            "updated_at": complaint.updated_at.isoformat()
-        }
-    }
+            "complaint_id": complaint_id,
+            "status": new_status,
+            "updated_at": _iso(updated_at),
+        },
+    }), 200
 
 
-@router.patch("/complaints/{complaint_id}/close")
-def close_complaint(
-    complaint_id: str,
-    payload: CloseComplaintRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    complaint = db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
-    if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint ID does not exist.")
+@processing_bp.patch("/complaints/<complaint_id>/close")
+def close_complaint(complaint_id):
+    # role_required allows one role; closing is open to two, so the check is inline.
+    if "user_id" not in session:
+        return error(401, "UNAUTHENTICATED", "Please log in.")
+    role = session.get("role")
+    if role not in (RESIDENT, ADMINISTRATOR):
+        return error(403, "FORBIDDEN", "You do not have access to this action.")
+    user_id = session["user_id"]
 
-    # Authorization Check (Only original resident or admin can close)
-    if current_user["role"] == "resident" and complaint.resident_id != current_user["user_id"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user attempting closure.")
-    elif current_user["role"] not in ["resident", "administrator"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user attempting closure.")
+    data = _body()
+    notes, problem = schema.parse_close(data)
+    if problem:
+        return _validation_error(problem)
 
-    if complaint.status != ComplaintStatus.RESOLVED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Attempting to close a complaint that is in '{complaint.status.value}' state instead of 'resolved'."
-        )
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            complaint = queries.lock_complaint(cur, complaint_id)
+            if complaint is None:
+                return error(404, "NOT_FOUND", "Complaint ID does not exist.")
 
-    if not payload.confirmation:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Confirmation is required to close the complaint.")
+            # Only the resident who raised the complaint, or an administrator, may close it.
+            if role == RESIDENT and complaint["resident_id"] != user_id:
+                return error(403, "FORBIDDEN", "Only the resident who raised this complaint can close it.")
 
-    # Append to status_history table
-    history = StatusHistory(
-        history_id=str(uuid.uuid4()),
-        complaint_id=complaint_id,
-        old_status=complaint.status,
-        new_status=ComplaintStatus.CLOSED,
-        changed_by=current_user["user_id"],
-        remarks=payload.closure_notes,
-        changed_at=datetime.utcnow()
-    )
-    db.add(history)
+            if not schema.is_confirmed(data):
+                return _validation_error("Confirmation is required to close the complaint.")
 
-    complaint.status = ComplaintStatus.CLOSED
-    complaint.updated_at = datetime.utcnow()
+            old_status = complaint["status"]
+            if old_status != "resolved":
+                return _invalid_transition(old_status, "closed")
 
-    db.commit()
+            if not queries.has_resolution(cur, complaint_id):
+                return _validation_error(
+                    "A complaint cannot be closed without documented resolution details."
+                )
 
-    return {
+            queries.insert_history(cur, complaint_id, old_status, "closed", user_id, notes)
+            closed_at = queries.set_status(cur, complaint_id, "closed")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return jsonify({
         "status": "success",
-        "message": "Complaint has been officially closed.",
-        "data": {
-            "complaint_id": complaint.complaint_id,
-            "status": complaint.status.value,
-            "closed_at": complaint.updated_at.isoformat()
-        }
-    }
+        "message": "Complaint has been closed.",
+        "data": {"complaint_id": complaint_id, "status": "closed", "closed_at": _iso(closed_at)},
+    }), 200

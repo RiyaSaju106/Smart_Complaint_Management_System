@@ -16,6 +16,9 @@ ALLOWED_TRANSITIONS = {
 }
 
 MAX_REMARKS = 500  # status_history.remarks is VARCHAR(500)
+# resolutions.details is TEXT (65,535 bytes, i.e. at least 16,383 utf8mb4 characters); this keeps
+# well inside that and stops oversized request bodies being stored.
+MAX_RESOLUTION_DETAILS = 5000
 
 
 def can_transition(old_status, new_status):
@@ -55,7 +58,7 @@ def parse_status_update(data):
     remarks, problem = _optional_text(data, "remarks", MAX_REMARKS)
     if problem:
         return None, problem
-    details, problem = _optional_text(data, "resolution_details")
+    details, problem = _optional_text(data, "resolution_details", MAX_RESOLUTION_DETAILS)
     if problem:
         return None, problem
     return {"status": status, "remarks": remarks, "resolution_details": details}, None

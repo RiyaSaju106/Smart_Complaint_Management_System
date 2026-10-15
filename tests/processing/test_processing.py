@@ -1,18 +1,22 @@
 """Processing & Status tests. TC-PRC-01..08 (STP section 13) plus successful resolution,
 closure authorization and status_history persistence.
 """
+import pymysql
 import pytest
+
+import process.queries as queries
+import process.routes as routes
 
 
 def status_url(cid):
-    return f"/api/v1/staff/complaints/{cid}/status"
+    return f"/api/staff/complaints/{cid}/status"
 
 
 def close_url(cid):
-    return f"/api/v1/complaints/{cid}/close"
+    return f"/api/complaints/{cid}/close"
 
 
-ASSIGNED_URL = "/api/v1/staff/complaints/assigned"
+ASSIGNED_URL = "/api/staff/complaints/assigned"
 
 
 def scenario(seed, status, assigned=True):
@@ -32,7 +36,7 @@ def scenario(seed, status, assigned=True):
 def rows(conn, sql, params=()):
     with conn.cursor() as cur:
         cur.execute(sql, params)
-        return cur.fetchall()
+        return list(cur.fetchall())  # PyMySQL returns () when there are no rows
 
 
 def complaint_status(conn, cid):
@@ -344,3 +348,55 @@ def test_rejected_requests_never_write_history(seed, conn, client_for):
     client.patch(status_url(cid), json={"status": "nonsense"})
     assert history(conn, cid) == []
     assert complaint_status(conn, cid) == "assigned"
+
+
+# ---------------------------------------------------------------- length limits
+
+def test_resolution_details_over_the_limit_are_rejected(seed, conn, client_for):
+    _, staff, cid = scenario(seed, "in_progress")
+    resp = client_for(staff, "maintenance_staff").patch(
+        status_url(cid), json={"status": "resolved", "resolution_details": "x" * 5001})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert complaint_status(conn, cid) == "in_progress"
+
+
+def test_resolution_details_at_the_limit_are_accepted(seed, conn, client_for):
+    _, staff, cid = scenario(seed, "in_progress")
+    resp = client_for(staff, "maintenance_staff").patch(
+        status_url(cid), json={"status": "resolved", "resolution_details": "x" * 5000})
+    assert resp.status_code == 200
+    assert len(rows(conn, "SELECT details FROM resolutions WHERE complaint_id = %s", (cid,))[0]["details"]) == 5000
+
+
+# ---------------------------------------------------------------- database errors are JSON
+
+def test_database_error_returns_json_500_without_details(seed, client_for, monkeypatch):
+    staff = seed.user("maintenance_staff")
+
+    def unreachable():
+        raise pymysql.err.OperationalError(2003, "Can't connect to MySQL server on 'secret-host'")
+
+    monkeypatch.setattr(routes, "get_connection", unreachable)
+    resp = client_for(staff, "maintenance_staff").get(ASSIGNED_URL)
+    assert resp.status_code == 500
+    assert resp.is_json
+    assert resp.get_json()["error"]["code"] == "DATABASE_ERROR"
+    assert "secret-host" not in resp.get_data(as_text=True)
+
+
+def test_failure_mid_transaction_rolls_back_everything(seed, conn, client_for, monkeypatch):
+    _, staff, cid = scenario(seed, "in_progress")
+
+    def lost_connection(*args, **kwargs):
+        raise pymysql.err.OperationalError(2013, "Lost connection to MySQL server")
+
+    monkeypatch.setattr(queries, "insert_history", lost_connection)
+    resp = client_for(staff, "maintenance_staff").patch(
+        status_url(cid), json={"status": "resolved", "resolution_details": "Fixed"})
+    assert resp.status_code == 500
+    assert resp.get_json()["error"]["code"] == "DATABASE_ERROR"
+    # The resolution row was inserted before the failure, so it must have been rolled back too.
+    assert complaint_status(conn, cid) == "in_progress"
+    assert rows(conn, "SELECT 1 FROM resolutions WHERE complaint_id = %s", (cid,)) == []
+    assert history(conn, cid) == []

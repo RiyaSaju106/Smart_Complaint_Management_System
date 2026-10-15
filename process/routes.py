@@ -8,18 +8,32 @@ How the module is split:
   schema.py   request validation and the allowed status transitions
   queries.py  PyMySQL SQL, one small function per query
 
-Shared project pieces used here: db.connection.get_connection(), and auth.roles.role_required /
+Shared project pieces used here: db.connection.get_connection(), and app.access.role_required /
 error (server-side session role, errors shaped {"error": {"code", "message"}}).
+
+Run everything from the repository root (the folder that contains app/, db/ and this folder), e.g.
+`python -m pytest tests/...`. Do not run this file directly: `app` would not be importable.
 """
-from flask import Blueprint, jsonify, request, session
+import pymysql
+from flask import Blueprint, current_app, jsonify, request, session
 
 from app.access import ADMINISTRATOR, RESIDENT, error, role_required
 from db.connection import get_connection
-from process import queries, schema
 
-processing_bp = Blueprint("processing", __name__, url_prefix="/api/v1")
+from . import queries, schema  # relative: works whatever this folder is named
+
+# /api like the other modules (auth uses /api/auth). SAD 4.3 and the STP still say /api/v1.
+processing_bp = Blueprint("processing", __name__, url_prefix="/api")
 
 MAINTENANCE_STAFF = "maintenance_staff"
+
+
+@processing_bp.errorhandler(pymysql.MySQLError)
+def database_error(exc):
+    """Any database failure becomes JSON in the project's error format, never an HTML 500 page.
+    The details go to the log only; the client gets a generic message."""
+    current_app.logger.error("Database error in processing module: %s", exc, exc_info=exc)
+    return error(500, "DATABASE_ERROR", "A database error occurred. Please try again.")
 
 
 def _body():

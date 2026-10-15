@@ -10,7 +10,7 @@ import uuid
 import pytest
 from flask import Flask, jsonify, request, session
 
-import processing.routes as routes
+import process.routes as routes
 from db.apply_schema import apply_schema
 from db.connection import get_connection as _real_get_connection
 

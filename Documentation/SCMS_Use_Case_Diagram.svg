@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1010" viewBox="0 0 1240 1010" font-family="Arial, Helvetica, sans-serif">
+<defs>
+  <marker id="open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse">
+    <path d="M1,1 L11,6 L1,11" fill="none" stroke="#333" stroke-width="1.4"/></marker>
+  <marker id="gen" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="16" markerHeight="16" orient="auto-start-reverse">
+    <path d="M1,1 L15,8 L1,15 Z" fill="#fff" stroke="#333" stroke-width="1.4"/></marker>
+</defs>
+<style>
+  .actor circle, .actor line { fill: #fff; stroke: #222; stroke-width: 2; }
+  .actor-label { font-size: 14px; text-anchor: middle; fill: #111; font-weight: bold; }
+  .uc { fill: #EEF4FB; stroke: #2F6FB3; stroke-width: 1.6; }
+  .uc-t { font-size: 13px; text-anchor: middle; fill: #111; }
+  .assoc { stroke: #333; stroke-width: 1.3; }
+  .dep { stroke: #333; stroke-width: 1.2; stroke-dasharray: 6 4; fill: none; }
+  .stereo { font-size: 11.5px; text-anchor: middle; fill: #333; font-style: italic; }
+  .gen { stroke: #333; stroke-width: 1.3; fill: none; }
+  .box { fill: #fff; stroke: #444; stroke-width: 1.6; }
+  .box-t { font-size: 15px; font-weight: bold; text-anchor: middle; fill: #111; }
+  .title { font-size: 19px; font-weight: bold; text-anchor: middle; fill: #111; }
+  .note { fill: #FFF8D6; stroke: #B59A2A; stroke-width: 1.2; }
+  .note-t { font-size: 12px; fill: #333; }
+  .note-h { font-size: 12.5px; fill: #111; font-weight: bold; }
+</style>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text class="title" x="620.0" y="26">Smart Complaint Management System (SCMS) – Use Case Diagram</text>
+<rect class="box" x="250" y="40" width="800" height="900" rx="4"/>
+<text class="box-t" x="650.0" y="62">SCMS</text>
+<path class="gen" d="M110,346 V700" marker-end="url(#gen)"/>
+<path class="gen" d="M1150,804 V972" />
+<path class="gen" d="M1176,190 H1212 V972 H110 V820" marker-end="url(#gen)"/>
+<line class="assoc" x1="136" y1="288" x2="267.0" y2="115.0"/>
+<line class="assoc" x1="136" y1="288" x2="267.0" y2="200.0"/>
+<line class="assoc" x1="136" y1="288" x2="267.0" y2="370.0"/>
+<line class="assoc" x1="136" y1="288" x2="267.0" y2="455.0"/>
+<path class="assoc" d="M136,300 C 210,540 400,545 542,530" fill="none"/>
+<line class="assoc" x1="136" y1="748" x2="267.0" y2="640.0"/>
+<line class="assoc" x1="136" y1="748" x2="267.0" y2="720.0"/>
+<line class="assoc" x1="136" y1="748" x2="267.0" y2="800.0"/>
+<line class="assoc" x1="136" y1="748" x2="267.0" y2="880.0"/>
+<line class="assoc" x1="1124" y1="188" x2="1033.0" y2="200.0"/>
+<line class="assoc" x1="1124" y1="748" x2="1033.0" y2="640.0"/>
+<line class="assoc" x1="1124" y1="748" x2="1033.0" y2="720.0"/>
+<line class="assoc" x1="1124" y1="748" x2="1033.0" y2="800.0"/>
+<line class="assoc" x1="1124" y1="748" x2="1033.0" y2="880.0"/>
+<path class="assoc" d="M1124,748 C 1080,560 900,575 762,530" fill="none"/>
+<line class="dep" x1="483.0" y1="200.0" x2="542.0" y2="200.0" marker-end="url(#open)"/>
+<text class="stereo" x="512.5" y="193.0">«include»</text>
+<line class="dep" x1="579.2" y1="136.9" x2="445.8" y2="178.1" marker-end="url(#open)"/>
+<text class="stereo" x="508.0" y="146.0">«extend»</text>
+<line class="dep" x1="542.0" y1="370.0" x2="483.0" y2="370.0" marker-end="url(#open)"/>
+<text class="stereo" x="512.5" y="363.0">«extend»</text>
+<line class="dep" x1="925.0" y1="171.0" x2="925.0" y2="144.0" marker-end="url(#open)"/>
+<text class="stereo" x="966.0" y="162.0">«include»</text>
+<line class="dep" x1="925.0" y1="229.0" x2="925.0" y2="256.0" marker-end="url(#open)"/>
+<text class="stereo" x="966.0" y="246.0">«include»</text>
+<line class="dep" x1="758.0" y1="285.0" x2="817.0" y2="285.0" marker-end="url(#open)"/>
+<text class="stereo" x="787.0" y="250.0">«extend»</text>
+<text class="stereo" x="787.0" y="263.0">[status = resolved]</text>
+<ellipse class="uc" cx="375" cy="115" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="112">Register Account</text>
+<text class="uc-t" x="375" y="128">(UC-01)</text>
+<ellipse class="uc" cx="375" cy="200" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="197">Submit Complaint</text>
+<text class="uc-t" x="375" y="213">(UC-02)</text>
+<ellipse class="uc" cx="375" cy="370" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="367">Track Complaint Status</text>
+<text class="uc-t" x="375" y="383">(UC-03)</text>
+<ellipse class="uc" cx="375" cy="455" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="452">Provide Feedback</text>
+<text class="uc-t" x="375" y="468">&amp; Rating (UC-04)</text>
+<ellipse class="uc" cx="375" cy="640" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="637">Log In / Log Out</text>
+<text class="uc-t" x="375" y="653">(UC-01)</text>
+<ellipse class="uc" cx="375" cy="720" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="725">Manage Own Profile</text>
+<ellipse class="uc" cx="375" cy="800" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="797">Search &amp; Filter</text>
+<text class="uc-t" x="375" y="813">Complaints</text>
+<ellipse class="uc" cx="375" cy="880" rx="108" ry="29"/>
+<text class="uc-t" x="375" y="885">Receive Notifications</text>
+<ellipse class="uc" cx="650" cy="115" rx="108" ry="29"/>
+<text class="uc-t" x="650" y="120">Attach Supporting File</text>
+<ellipse class="uc" cx="650" cy="200" rx="108" ry="29"/>
+<text class="uc-t" x="650" y="205">Generate Complaint ID</text>
+<ellipse class="uc" cx="650" cy="285" rx="108" ry="29"/>
+<text class="uc-t" x="650" y="282">Record Resolution</text>
+<text class="uc-t" x="650" y="298">Details</text>
+<ellipse class="uc" cx="650" cy="370" rx="108" ry="29"/>
+<text class="uc-t" x="650" y="375">View Status History</text>
+<ellipse class="uc" cx="650" cy="530" rx="108" ry="29"/>
+<text class="uc-t" x="650" y="527">Close Resolved</text>
+<text class="uc-t" x="650" y="543">Complaint</text>
+<ellipse class="uc" cx="925" cy="115" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="112">View Assigned</text>
+<text class="uc-t" x="925" y="128">Complaints</text>
+<ellipse class="uc" cx="925" cy="200" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="197">Process Complaint</text>
+<text class="uc-t" x="925" y="213">(UC-05)</text>
+<ellipse class="uc" cx="925" cy="285" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="282">Update Complaint</text>
+<text class="uc-t" x="925" y="298">Status</text>
+<ellipse class="uc" cx="925" cy="640" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="637">Assign Complaint</text>
+<text class="uc-t" x="925" y="653">(UC-06)</text>
+<ellipse class="uc" cx="925" cy="720" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="717">Manage Users</text>
+<text class="uc-t" x="925" y="733">(UC-07)</text>
+<ellipse class="uc" cx="925" cy="800" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="797">Manage Categories</text>
+<text class="uc-t" x="925" y="813">(UC-07)</text>
+<ellipse class="uc" cx="925" cy="880" rx="108" ry="29"/>
+<text class="uc-t" x="925" y="877">View Dashboard</text>
+<text class="uc-t" x="925" y="893">&amp; Reports (UC-08)</text>
+<g class="actor"><circle cx="110" cy="260" r="11"/><line x1="110" y1="271" x2="110" y2="300"/><line x1="92" y1="281" x2="128" y2="281"/><line x1="110" y1="300" x2="95" y2="324"/><line x1="110" y1="300" x2="125" y2="324"/></g>
+<text class="actor-label" x="110" y="344">Resident</text>
+<g class="actor"><circle cx="110" cy="720" r="11"/><line x1="110" y1="731" x2="110" y2="760"/><line x1="92" y1="741" x2="128" y2="741"/><line x1="110" y1="760" x2="95" y2="784"/><line x1="110" y1="760" x2="125" y2="784"/></g>
+<text class="actor-label" x="110" y="804">Registered User</text>
+<g class="actor"><circle cx="1150" cy="160" r="11"/><line x1="1150" y1="171" x2="1150" y2="200"/><line x1="1132" y1="181" x2="1168" y2="181"/><line x1="1150" y1="200" x2="1135" y2="224"/><line x1="1150" y1="200" x2="1165" y2="224"/></g>
+<text class="actor-label" x="1150" y="244">Maintenance Staff</text>
+<g class="actor"><circle cx="1150" cy="720" r="11"/><line x1="1150" y1="731" x2="1150" y2="760"/><line x1="1132" y1="741" x2="1168" y2="741"/><line x1="1150" y1="760" x2="1135" y2="784"/><line x1="1150" y1="760" x2="1165" y2="784"/></g>
+<text class="actor-label" x="1150" y="804">Administrator</text>
+<rect class="note" x="545" y="625" width="210" height="270" rx="3"/>
+<text class="note-h" x="557" y="647.0" xml:space="preserve">Rules from the SRS</text>
+<text class="note-t" x="557" y="662.5" xml:space="preserve"></text>
+<text class="note-t" x="557" y="678.0" xml:space="preserve">• Every role is a Registered</text>
+<text class="note-t" x="557" y="693.5" xml:space="preserve">  User and inherits its use cases.</text>
+<text class="note-t" x="557" y="709.0" xml:space="preserve"></text>
+<text class="note-t" x="557" y="724.5" xml:space="preserve">• A complaint can be closed only</text>
+<text class="note-t" x="557" y="740.0" xml:space="preserve">  once resolved with resolution</text>
+<text class="note-t" x="557" y="755.5" xml:space="preserve">  details recorded (FR-020).</text>
+<text class="note-t" x="557" y="771.0" xml:space="preserve"></text>
+<text class="note-t" x="557" y="786.5" xml:space="preserve">• Feedback is allowed only after</text>
+<text class="note-t" x="557" y="802.0" xml:space="preserve">  resolution (FR-021).</text>
+<text class="note-t" x="557" y="817.5" xml:space="preserve"></text>
+<text class="note-t" x="557" y="833.0" xml:space="preserve">• Staff may only update status</text>
+<text class="note-t" x="557" y="848.5" xml:space="preserve">  through permitted states and</text>
+<text class="note-t" x="557" y="864.0" xml:space="preserve">  only for complaints assigned</text>
+<text class="note-t" x="557" y="879.5" xml:space="preserve">  to them (FR-012, FR-013).</text>
+</svg>

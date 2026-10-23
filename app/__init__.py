@@ -18,10 +18,12 @@ def create_app():
     from app.users.routes import users_bp
     from app.roles.routes import roles_bp
     from process import processing_bp
+    from app.notifications.routes import notifications_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)
     app.register_blueprint(processing_bp)
+    app.register_blueprint(notifications_bp)
 
     return app

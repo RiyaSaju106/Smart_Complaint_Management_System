@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}SCMS – Maintenance Staff{% endblock %}
+
+{% block body %}
+<header class="staff">
+  <strong>Smart Complaint Management System</strong>
+  <span class="badge">Maintenance Staff</span>
+</header>
+
+<main>
+  <h1>Welcome, {{ name or "Maintenance Staff" }}</h1>
+
+  <div class="card">
+    View and process complaints currently assigned to you.
+  </div>
+</main>
+{% endblock %}

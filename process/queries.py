@@ -78,3 +78,32 @@ def set_status(cur, complaint_id, new_status):
     )
     cur.execute("SELECT updated_at FROM complaints WHERE complaint_id = %s", (complaint_id,))
     return cur.fetchone()["updated_at"]
+
+
+def get_detail(cur, complaint_id):
+    cur.execute(
+        "SELECT c.complaint_id, c.title, c.description, c.location, c.status, c.category_id, "
+        "cat.name AS category, c.created_at, c.updated_at "
+        "FROM complaints c JOIN categories cat ON cat.category_id = c.category_id "
+        "WHERE c.complaint_id = %s",
+        (complaint_id,),
+    )
+    return cur.fetchone()
+
+
+def get_resolution(cur, complaint_id):
+    cur.execute(
+        "SELECT resolved_by, details, resolved_at FROM resolutions WHERE complaint_id = %s",
+        (complaint_id,),
+    )
+    return cur.fetchone()
+
+
+def list_history(cur, complaint_id):
+    """Oldest first. changed_at ties are broken by insertion-independent columns only."""
+    cur.execute(
+        "SELECT old_status, new_status, changed_by, remarks, changed_at FROM status_history "
+        "WHERE complaint_id = %s ORDER BY changed_at, new_status",
+        (complaint_id,),
+    )
+    return cur.fetchall()

@@ -15,6 +15,9 @@ ALLOWED_TRANSITIONS = {
     "in_progress": ("resolved",),
 }
 
+# Staff may add remarks only while they are working on the complaint.
+REMARKABLE_STATUSES = ("assigned", "in_progress")
+
 MAX_REMARKS = 500  # status_history.remarks is VARCHAR(500)
 # resolutions.details is TEXT (65,535 bytes, i.e. at least 16,383 utf8mb4 characters); this keeps
 # well inside that and stops oversized request bodies being stored.
@@ -72,3 +75,13 @@ def parse_close(data):
 def is_confirmed(data):
     """Closing needs an explicit JSON true; 'true', 1 and a missing value do not count."""
     return data.get("confirmation") is True
+
+
+def parse_remark(data):
+    """Validate a POST .../remarks body: {remarks}. A remark is required and may not be blank."""
+    remarks, problem = _optional_text(data, "remarks", MAX_REMARKS)
+    if problem:
+        return None, problem
+    if remarks is None:
+        return None, "'remarks' is required."
+    return remarks, None

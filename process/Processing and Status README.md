@@ -15,7 +15,6 @@ Flask blueprint on PyMySQL. It uses the existing `db/schema.sql` tables (`compla
 | `routes.py` | HTTP layer: login and role checks, order of checks, one transaction per request, responses, JSON error handler for database failures |
 | `schema.py` | Request validation and lifecycle rules (`STATUSES`, `ALLOWED_TRANSITIONS`, size limits). No Flask or database code |
 | `queries.py` | PyMySQL SQL, one small function per query. Takes a cursor, never commits |
-| `events.py` | Notification seam: `subscribe(handler)`; `publish()` is called after each committed status change. No notification logic here |
 | `__init__.py` | Exports `processing_bp` |
 
 Tests are in `tests/processing/` (`conftest.py` fixtures, `test_processing.py`).
@@ -120,9 +119,7 @@ code. Only login is stood in for: a test-only route sets `session["user_id"]` an
 
 ## Known gaps
 
-- **Notifications** are not created here. Each committed status change calls `events.publish`
-  (`COMPLAINT_STATUS_CHANGED`, with old/new status, actor, remarks); the Notification module
-  subscribes and maps it to its contract events. Event names still need agreeing with Rohan.
+- **Notifications** are raised by `app.notifications.service.notify()` after each committed status change (see `Documentation/API/notification-contract.md`). The processing module only calls it; it holds no notification logic.
 - **Account status:** the module trusts the session role and does not re-check `users.is_active`.
 - **Prefix:** SAD 4.3 and the STP test cases say `/api/v1/...`; the code uses `/api` to match the
   other modules. Update the documents or change `url_prefix` in `routes.py`.

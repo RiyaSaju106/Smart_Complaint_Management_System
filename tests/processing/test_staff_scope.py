@@ -1,10 +1,9 @@
-"""Staff scope, remarks and lifecycle events: TC-ASG-03/04 visibility, TC-PROC-01..04, TC-RES-01/02.
+"""Staff scope, remarks and remarks: TC-ASG-03/04 visibility, TC-PROC-01..04, TC-RES-01/02.
 
 Complements test_processing.py (which holds TC-PRC-01..08).
 """
 import pytest
 
-import process.events as events
 from tests.processing.test_processing import (
     close_url, complaint_status, history, rows, scenario, status_url,
 )
@@ -144,43 +143,24 @@ def test_timestamps_are_recorded(seed, conn, client_for):
     assert rows(conn, "SELECT updated_at FROM complaints WHERE complaint_id = %s", (cid,))[0]["updated_at"]
 
 
-# ---------------------------------------------------------------- lifecycle events (notification seam)
+# ---------------------------------------------------------------- notifications (FR-019, Rohan's notify())
 
-@pytest.fixture
-def captured():
-    got = []
-    events.subscribe(got.append)
-    yield got
-    events.unsubscribe(got.append)
+def notified(conn, user_id):
+    return sorted(r["event"] for r in rows(
+        conn, "SELECT event FROM notifications WHERE user_id = %s", (user_id,)))
 
 
-def test_status_changes_publish_events_after_commit(seed, client_for, captured):
+def test_remarks_and_rejected_requests_create_no_notifications(seed, conn, client_for):
     resident, staff, cid = scenario(seed, "assigned")
-    client_for(staff, "maintenance_staff").patch(status_url(cid), json={"status": "in_progress", "remarks": "go"})
-    client_for(staff, "maintenance_staff").patch(
-        status_url(cid), json={"status": "resolved", "resolution_details": "Done"})
-    client_for(resident, "resident").patch(close_url(cid), json={"confirmation": True})
-    assert [(e["old_status"], e["new_status"], e["actor_id"]) for e in captured] == [
-        ("assigned", "in_progress", staff), ("in_progress", "resolved", staff), ("resolved", "closed", resident)]
-    assert all(e["event"] == events.STATUS_CHANGED and e["complaint_id"] == cid for e in captured)
-    assert captured[0]["remarks"] == "go"
+    client = client_for(staff, "maintenance_staff")
+    client.post(remarks_url(cid), json={"remarks": "just a note"})
+    client.patch(status_url(cid), json={"status": "closed"})
+    assert notified(conn, resident) == []
 
 
-def test_rejected_requests_publish_nothing(seed, client_for, captured):
-    _, staff, cid = scenario(seed, "assigned")
-    client_for(staff, "maintenance_staff").patch(status_url(cid), json={"status": "closed"})
-    client_for(staff, "maintenance_staff").post(remarks_url(cid), json={"remarks": "just a note"})
-    assert captured == []
-
-
-def test_failing_listener_does_not_break_the_request(seed, conn, client_for):
-    def boom(_):
-        raise RuntimeError("notification down")
-    events.subscribe(boom)
-    try:
-        _, staff, cid = scenario(seed, "assigned")
-        resp = client_for(staff, "maintenance_staff").patch(status_url(cid), json={"status": "in_progress"})
-    finally:
-        events.unsubscribe(boom)
-    assert resp.status_code == 200
-    assert complaint_status(conn, cid) == "in_progress"
+def test_remark_does_not_notify_but_transition_does(seed, conn, client_for):
+    resident, staff, cid = scenario(seed, "assigned")
+    client = client_for(staff, "maintenance_staff")
+    client.post(remarks_url(cid), json={"remarks": "note"})
+    client.patch(status_url(cid), json={"status": "in_progress"})
+    assert notified(conn, resident) == ["STATUS_CHANGED"]

@@ -18,9 +18,10 @@ import pymysql
 from flask import Blueprint, current_app, jsonify, request, session
 
 from app.access import ADMINISTRATOR, RESIDENT, error, role_required
+from app.notifications import service as notifications
 from db.connection import get_connection
 
-from . import events, queries, schema  # relative: works whatever this folder is named
+from . import queries, schema  # relative: works whatever this folder is named
 
 # /api like the other modules (auth uses /api/auth). SAD 4.3 and the STP still say /api/v1.
 processing_bp = Blueprint("processing", __name__, url_prefix="/api")
@@ -128,8 +129,12 @@ def update_status(complaint_id):
     finally:
         conn.close()
 
-    events.publish(events.STATUS_CHANGED, complaint_id=complaint_id, old_status=old_status,
-                   new_status=new_status, actor_id=user_id, remarks=parsed["remarks"])
+    # FR-019: tell the resident, after the change is committed. notify() never raises.
+    event = (
+        notifications.COMPLAINT_RESOLVED if new_status == "resolved"
+        else notifications.STATUS_CHANGED
+    )
+    notifications.notify(event, complaint_id, [complaint["resident_id"]], new_status=new_status)
     return jsonify({
         "status": "success",
         "message": f"Complaint status updated from {old_status} to {new_status}.",
@@ -258,8 +263,8 @@ def close_complaint(complaint_id):
     finally:
         conn.close()
 
-    events.publish(events.STATUS_CHANGED, complaint_id=complaint_id, old_status=old_status,
-                   new_status="closed", actor_id=user_id, remarks=notes)
+    # FR-019: tell the resident, after the change is committed. notify() never raises.
+    notifications.notify(notifications.COMPLAINT_CLOSED, complaint_id, [complaint["resident_id"]])
     return jsonify({
         "status": "success",
         "message": "Complaint has been closed.",

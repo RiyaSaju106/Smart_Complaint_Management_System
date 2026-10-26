@@ -1,5 +1,7 @@
-"""Complaint registration module."""
+from flask import Blueprint
 
-from .routes import complaints_bp
-
-__all__ = ["complaints_bp"]
+complaints_bp = Blueprint(
+    "complaints",
+    __name__,
+    url_prefix="/api",
+)

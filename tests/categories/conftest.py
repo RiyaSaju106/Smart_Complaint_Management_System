@@ -1,4 +1,4 @@
-"""Fixtures for the Category/Department tests. Runs against TEST_DB_NAME only, never DB_NAME.
+"""Fixtures for the Category/Assignment tests. Runs against TEST_DB_NAME only, never DB_NAME.
 
 Requests go through the real app factory, the real role_required decorator and the real PyMySQL
 code; only get_connection is pointed at the test database. Login is stood in for by writing the
@@ -66,6 +66,7 @@ def app(monkeypatch, conn, test_db_name, tmp_path):
     test_connection = lambda: get_connection(database=test_db_name)  # noqa: E731
     monkeypatch.setattr("app.categories.routes.get_connection", test_connection)
     monkeypatch.setattr("app.complaints.routes.get_connection", test_connection)
+    monkeypatch.setattr("process.routes.get_connection", test_connection)
     flask_app = create_app()
     flask_app.config.update(TESTING=True, ATTACHMENT_UPLOAD_DIR=str(tmp_path))
     return flask_app
@@ -122,14 +123,21 @@ class Seed:
         )
         return user_id
 
-    def complaint(self, resident_id, category_id):
+    def complaint(self, resident_id, category_id, status="submitted"):
         complaint_id = str(uuid.uuid4())
         self._run(
             "INSERT INTO complaints (complaint_id, resident_id, title, category_id, description, "
-            "location) VALUES (%s, %s, %s, %s, %s, %s)",
-            (complaint_id, resident_id, "Leaking tap", category_id, "Tap leaks.", "Block A"),
+            "location, status) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (complaint_id, resident_id, "Leaking tap", category_id, "Tap leaks.", "Block A", status),
         )
         return complaint_id
+
+    def assignment(self, complaint_id, assigned_by, department_id, staff_id=None):
+        self._run(
+            "INSERT INTO assignments (assignment_id, complaint_id, assigned_by, department_id, "
+            "staff_id) VALUES (%s, %s, %s, %s, %s)",
+            (str(uuid.uuid4()), complaint_id, assigned_by, department_id, staff_id),
+        )
 
     def scalar(self, sql, params=()):
         with self.conn.cursor() as cur:

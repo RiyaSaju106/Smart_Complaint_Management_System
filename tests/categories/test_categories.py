@@ -165,6 +165,17 @@ def test_tc_asg_05_duplicate_name_is_rejected(seed, admin, name):
     assert category_count(seed) == 1
 
 
+def test_accented_spelling_counts_as_duplicate(seed, admin):
+    # Database behaviour (utf8mb4_0900_ai_ci on uq_categories_name), not an SRS rule.
+    assert admin.post("/api/categories", json={"name": "Cafe"}).status_code == 201
+
+    response = admin.post("/api/categories", json={"name": "Café"})
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["code"] == "DUPLICATE_CATEGORY"
+    assert category_count(seed) == 1
+
+
 @pytest.mark.parametrize("body", [
     None,
     {},

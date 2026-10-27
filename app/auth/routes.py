@@ -3,8 +3,8 @@ import re
 import uuid
 
 import pymysql
-from flask import Blueprint, jsonify, request
-
+from flask import Blueprint, jsonify, request, session
+from app.access import RESIDENT
 from db.connection import get_connection
 from db.passwords import hash_password, verify_password
 
@@ -114,7 +114,7 @@ def register():
                     hash_password(password),
                     contact_number.strip(),
                     unit_address.strip(),
-                    "resident",
+                    RESIDENT,
                 ),
             )
         conn.commit()
@@ -141,7 +141,7 @@ def register():
             "user_id": user_id,
             "name": name,
             "email": email,
-            "role": "resident",
+            "role": RESIDENT,
         },
     }), 201
 
@@ -206,9 +206,9 @@ def login():
             401, "INVALID_CREDENTIALS", "Invalid email or password."
         )
 
-    # Prevent a previous session from carrying over into this login.
-    from flask import session
+# Prevent data from a previous login from carrying into this session.
     session.clear()
+    session.permanent = True
     session["user_id"] = user["user_id"]
     session["name"] = user["name"]
     session["role"] = user["role"]
@@ -226,7 +226,5 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
-    from flask import session
     session.clear()
-
     return jsonify({"message": "Logout successful."}), 200

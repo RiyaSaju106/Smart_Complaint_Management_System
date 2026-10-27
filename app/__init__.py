@@ -60,12 +60,14 @@ def create_app():
     from app.roles.routes import roles_bp
     from app.complaints import complaints_bp
     from app.complaints import routes as complaints_routes
+    from app.categories import categories_bp
     from process import processing_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)
     app.register_blueprint(complaints_bp)
+    app.register_blueprint(categories_bp)
     app.register_blueprint(processing_bp)
 
     return app

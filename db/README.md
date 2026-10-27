@@ -9,7 +9,7 @@ relationships and constraints.
 | `apply_schema.py` | Applies the schema; also upgrades databases created by earlier versions |
 | `check_connection.py` | Checks the connection and retrieves the demo resident |
 | `seed_reference_data.py` | Predefined categories and departments |
-| `seed_demo_users.py` | Demo `resident` and `administrator` accounts |
+| `seed_demo_users.py` | Demo `resident`, `administrator` and `maintenance_staff` accounts |
 | `passwords.py` | Password hashing helpers (use these in Auth) |
 | `connection.py` | `get_connection()` for Python code |
 | `tests/db/` | pytest suite, run against `scms_test_db` only |
@@ -64,13 +64,14 @@ Then edit `.env`. It is git-ignored: **never commit it**.
 | `TEST_DB_NAME` | Test-only database: `scms_test_db` (must differ from `DB_NAME`) |
 | `DEMO_RESIDENT_EMAIL`, `DEMO_RESIDENT_PASSWORD` | Demo resident login (choose any password) |
 | `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD` | Demo administrator login |
+| `DEMO_STAFF_PASSWORD` | Optional. Password for the four demo maintenance staff (`staff.electrical@example.com`, `staff.plumbing@…`, `staff.housekeeping@…`, `staff.security@…`), one per department |
 
 ### 5. Build, seed and check
 
 ```bash
 .venv/bin/python -m db.apply_schema           # create or upgrade all tables
 .venv/bin/python -m db.seed_reference_data    # categories and departments
-.venv/bin/python -m db.seed_demo_users        # demo resident and administrator
+.venv/bin/python -m db.seed_demo_users        # demo resident, administrator and staff
 .venv/bin/python -m db.check_connection       # connect and retrieve the demo resident
 .venv/bin/python -m pytest tests/db -v        # relationship and constraint tests
 ```
@@ -89,7 +90,7 @@ Every script is safe to run again: nothing is dropped, deleted or duplicated in 
 |---|---|
 | `python -m db.apply_schema [--database NAME]` | Runs `schema.sql` (`CREATE TABLE IF NOT EXISTS`), then upgrades an older `users` table: legacy role values are converted to the lowercase roles (any case, `Maintenance Staff` / `maintenance-staff`, the short forms `admin` / `staff`, stored as ENUM or VARCHAR), and missing columns and the department foreign key are added. Users, password hashes and timestamps are kept. If a role value can't be mapped (e.g. `superuser`), it changes nothing and exits 1, listing the values to fix. Prints which upgrades ran. |
 | `python -m db.seed_reference_data` | Creates any missing categories (Electrical, Water Supply, Cleaning, Security, Other) and departments (Electrical, Plumbing, Housekeeping, Security). "Plumbing" is not a predefined category because TC-ASG-03 creates it. |
-| `python -m db.seed_demo_users` | Creates the two demo users with hashed passwords, generated UUIDs and placeholder contact details for the resident. Skips existing emails. Never prints passwords or hashes. |
+| `python -m db.seed_demo_users` | Creates the demo resident and administrator with hashed passwords, generated UUIDs and placeholder contact details for the resident, plus one maintenance staff account per department when `DEMO_STAFF_PASSWORD` is set. Skips existing emails. Never prints passwords or hashes. |
 | `python -m db.check_connection` | Prints database and server version, then retrieves `DEMO_RESIDENT_EMAIL`. Exits non-zero on failure. |
 | `python -m pytest tests/db -v` | **Drops and recreates `scms_test_db`**, builds the schema from scratch, and empties all tables before each test. Refuses to run against `scms_db`. |
 

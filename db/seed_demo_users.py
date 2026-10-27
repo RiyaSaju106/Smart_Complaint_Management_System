@@ -1,8 +1,9 @@
-"""Create the demo resident and administrator accounts. Safe to run repeatedly.
+"""Create the demo resident, administrator and maintenance staff accounts. Safe to run repeatedly.
 
 Usage: python -m db.seed_demo_users
 Reads DEMO_RESIDENT_EMAIL, DEMO_RESIDENT_PASSWORD, DEMO_ADMIN_EMAIL and
-DEMO_ADMIN_PASSWORD from the environment (.env). Passwords are hashed (db.passwords,
+DEMO_ADMIN_PASSWORD from the environment (.env). If DEMO_STAFF_PASSWORD is also set, one
+maintenance staff account is created per seeded department (run db.seed_reference_data first). Passwords are hashed (db.passwords,
 pbkdf2:sha256) before insert; a user whose email already exists is skipped.
 Never prints passwords or hashes.
 """
@@ -21,6 +22,34 @@ DEMO_USERS = (
 
 # Residents must have contact details (SRS Appendix B). Placeholder values, not real data.
 DEMO_RESIDENT_CONTACT = ("0000000000", "Demo Block A, Unit 101")
+
+# (name, email, department name from db.seed_reference_data). All use DEMO_STAFF_PASSWORD.
+DEMO_STAFF = (
+    ("Demo Electrical Staff", "staff.electrical@example.com", "Electrical"),
+    ("Demo Plumbing Staff", "staff.plumbing@example.com", "Plumbing"),
+    ("Demo Housekeeping Staff", "staff.housekeeping@example.com", "Housekeeping"),
+    ("Demo Security Staff", "staff.security@example.com", "Security"),
+)
+
+
+def seed_staff(cur, password):
+    for name, email, department in DEMO_STAFF:
+        cur.execute("SELECT department_id FROM departments WHERE name = %s", (department,))
+        row = cur.fetchone()
+        if row is None:
+            print(f"Skipped maintenance_staff {email}: no {department} department "
+                  "(run python -m db.seed_reference_data first)")
+            continue
+        cur.execute("SELECT 1 FROM users WHERE email = %s", (email,))
+        if cur.fetchone():
+            print(f"Skipped maintenance_staff {email}: already exists")
+            continue
+        cur.execute(
+            "INSERT INTO users (user_id, name, email, password_hash, role, department_id) "
+            "VALUES (%s, %s, %s, %s, 'maintenance_staff', %s)",
+            (str(uuid.uuid4()), name, email, hash_password(password), row["department_id"]),
+        )
+        print(f"Created maintenance_staff {email} ({department})")
 
 
 def main():
@@ -67,6 +96,11 @@ def main():
                     ),
                 )
                 print(f"Created {role} {email}")
+            staff_password = os.environ.get("DEMO_STAFF_PASSWORD")
+            if staff_password:
+                seed_staff(cur, staff_password)
+            else:
+                print("Skipped demo maintenance staff: DEMO_STAFF_PASSWORD is not set")
         conn.commit()
     finally:
         conn.close()

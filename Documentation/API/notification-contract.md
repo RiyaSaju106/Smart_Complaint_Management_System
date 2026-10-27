@@ -26,7 +26,7 @@ notify(COMPLAINT_ASSIGNED, complaint_id, [resident_id, staff_id])
 | Event | Raised by | Recipients | Status |
 |---|---|---|---|
 | `COMPLAINT_SUBMITTED` | Complaint module (Riya) | Resident | Ready to call once submission is merged (#17) |
-| `COMPLAINT_ASSIGNED` | Category/Assignment module (Rohit) | Resident, assigned staff | Ready to call once assignment is merged (#19) |
+| `COMPLAINT_ASSIGNED` | Category/Assignment module (Rohit) | Resident, assigned staff | **Wired** in `POST /api/complaints/{id}/assignment` (#19), on assignment and reassignment |
 | `STATUS_CHANGED` | Processing/Status (Ritu) | Resident | **Wired** in `PATCH /api/staff/complaints/{id}/status` (e.g. → `in_progress`) |
 | `COMPLAINT_RESOLVED` | Processing/Status (Ritu) | Resident | **Wired** in the same endpoint when the status becomes `resolved` |
 | `COMPLAINT_CLOSED` | Processing/Status (Ritu) | Resident | **Wired** in `PATCH /api/complaints/{id}/close` |

@@ -357,3 +357,79 @@ def test_get_current_assignment_helper(seed, conn, world):
     assert current["department_id"] == world["plumbing"]
     assert current["staff_id"] == world["plumber"]
     assert current["assigned_at"] is not None
+
+
+# ---------------------------------------------------------------- notifications (FR-019, #42)
+
+def notified(seed, complaint_id):
+    with seed.conn.cursor() as cur:
+        cur.execute(
+            "SELECT user_id, event, is_read FROM notifications WHERE complaint_id = %s",
+            (complaint_id,),
+        )
+        return sorted((r["user_id"], r["event"], r["is_read"]) for r in cur.fetchall())
+
+
+def test_assignment_notifies_resident_and_staff(seed, admin, world):
+    assert assign(admin, world["complaint"], world["plumbing"], world["plumber"]).status_code == 200
+
+    assert notified(seed, world["complaint"]) == sorted([
+        (world["resident"], "COMPLAINT_ASSIGNED", 0),
+        (world["plumber"], "COMPLAINT_ASSIGNED", 0),
+    ])
+
+
+def test_department_only_assignment_notifies_resident(seed, admin, world):
+    assert assign(admin, world["complaint"], world["plumbing"]).status_code == 200
+
+    assert notified(seed, world["complaint"]) == [(world["resident"], "COMPLAINT_ASSIGNED", 0)]
+
+
+def test_reassignment_notifies_new_staff(seed, admin, world):
+    complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status="in_progress")
+    seed.assignment(complaint_id, admin_id_of(admin), world["plumbing"], world["plumber"])
+
+    assert assign(admin, complaint_id, world["electrical"], world["electrician"]).status_code == 200
+
+    assert notified(seed, complaint_id) == sorted([
+        (world["resident"], "COMPLAINT_ASSIGNED", 0),
+        (world["electrician"], "COMPLAINT_ASSIGNED", 0),
+    ])
+
+
+def test_assigned_staff_sees_notification_in_their_list(client_for, admin, world):
+    assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+
+    response = client_for(world["plumber"], "maintenance_staff").get("/api/notifications")
+
+    assert response.status_code == 200
+    assert "assigned" in response.get_data(as_text=True)
+
+
+@pytest.mark.parametrize("case", ["closed complaint", "ineligible staff", "non-admin"])
+def test_rejected_assignment_sends_no_notification(seed, admin, resident, world, case):
+    complaint_id = world["complaint"]
+    if case == "closed complaint":
+        complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status="closed")
+        response = assign(admin, complaint_id, world["plumbing"], world["plumber"])
+    elif case == "ineligible staff":
+        response = assign(admin, complaint_id, world["plumbing"], world["electrician"])
+    else:
+        response = assign(resident, complaint_id, world["plumbing"], world["plumber"])
+
+    assert response.status_code in (400, 403, 409)
+    assert notified(seed, complaint_id) == []
+
+
+def test_notification_failure_does_not_undo_assignment(monkeypatch, seed, admin, world):
+    def broken():
+        raise RuntimeError("notification database down")
+
+    monkeypatch.setattr("app.notifications.service.get_connection", broken)
+
+    response = assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+
+    assert response.status_code == 200
+    assert [r["is_current"] for r in assignments(seed, world["complaint"])] == [1]
+    assert status_of(seed, world["complaint"]) == "assigned"
+    assert notified(seed, world["complaint"]) == []

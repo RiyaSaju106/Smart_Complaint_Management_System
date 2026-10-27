@@ -14,6 +14,7 @@ import pymysql
 from flask import Blueprint, current_app, jsonify, request, session
 
 from app.access import ADMINISTRATOR, error, role_required
+from app.notifications import service as notifications
 from db.connection import get_connection
 
 try:
@@ -272,8 +273,11 @@ def assign_complaint(complaint_id):
     finally:
         conn.close()
 
-    # TODO(#28): once #42 is merged, notify after commit (notify() never raises):
-    #   notify(COMPLAINT_ASSIGNED, complaint_id, [complaint["resident_id"], staff_id])
+    # FR-019: tell the resident and the assigned staff, after the change is committed.
+    # notify() never raises and drops a missing staff_id (department-only assignment).
+    notifications.notify(
+        notifications.COMPLAINT_ASSIGNED, complaint_id, [complaint["resident_id"], staff_id]
+    )
 
     return jsonify({
         "complaint_id": complaint_id,

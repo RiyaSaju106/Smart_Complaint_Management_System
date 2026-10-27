@@ -3,6 +3,7 @@ from functools import wraps
 from flask import jsonify, session
 
 RESIDENT = "resident"
+MAINTENANCE_STAFF = "maintenance_staff"
 ADMINISTRATOR = "administrator"
 
 
@@ -13,8 +14,7 @@ def error(status, code, message):
 def role_required(role):
     """Allow the request only if the logged-in user's session role matches.
 
-    The role is read from the server-side session set at login, never from
-    the request, so the interface cannot grant itself extra privileges.
+    The role is read from the signed Flask session set at login, never from the request, so the interface cannot grant itself extra privileges.
     """
     def decorator(view):
         @wraps(view)

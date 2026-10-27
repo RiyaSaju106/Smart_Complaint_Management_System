@@ -24,7 +24,8 @@
 
 | Function | Used by | Behaviour |
 |---|---|---|
-| `get_active_category(category_id)` | Complaint (Riya) on `POST /api/complaints` | Returns the category, or `None` if it does not exist or is inactive. The caller returns **400** (see 4.1). |
+| `get_active_category(cur, category_id)` in `app/categories/queries.py` | Complaint (Riya) on `POST /api/complaints` | Returns the category, or `None` if it does not exist or is inactive. The caller returns **400** (see 5). Takes the caller's cursor so it runs inside the caller's transaction. The Complaint module currently has an equivalent query of its own in `app/complaints/queries.py`. |
+| `get_department_staff_member(cur, department_id, user_id)` in `app/categories/queries.py` | Category/Assignment (assignment, #19) | Returns `{user_id, name}` if the user is an active `maintenance_staff` member of that department, otherwise `None`. Same rule as 3.6. |
 | `get_current_assignment(complaint_id)` | Processing/Status (Ritu), Notification (Rohan) | Returns `department_id`, `staff_id`, `assigned_at`, or `None`. |
 | `record_status_change(complaint_id, old_status, new_status, changed_by, remarks=None)` | Complaint (initial `submitted` row), Category/Assignment, Processing/Status | Inserts one `status_history` row in the caller's transaction. Never updates or deletes rows. |
 
@@ -49,9 +50,9 @@ These match `db/schema.sql` and the team conventions in `module-boundaries.md`.
 
 ### 3.1 List categories (FR-009)
 
-`GET /api/categories`: any authenticated role.
+`GET /api/categories`: any authenticated role. **Implemented (#18).**
 
-Returns active categories, sorted by name. Administrators may pass `?include_inactive=true`.
+Returns active categories, sorted by name. Administrators may pass `?include_inactive=true` to also get inactive ones; for other roles the flag is ignored. Any value other than `true` or `false` is a 400.
 
 ```json
 200
@@ -62,11 +63,21 @@ Returns active categories, sorted by name. Administrators may pass `?include_ina
 }
 ```
 
-Errors: 401.
+Errors: `400 VALIDATION_ERROR` (bad `include_inactive`), `401 UNAUTHENTICATED`.
+
+### Category validation (3.2 and 3.3)
+
+| Field | Rule |
+|---|---|
+| `name` | Required string. Leading and trailing spaces are trimmed; blank or whitespace-only is rejected; 1–100 characters after trimming. Must be unique, compared case- and accent-insensitively (the `uq_categories_name` key), so `plumbing` clashes with `Plumbing`. |
+| `description` | Optional string or `null`, at most 255 characters after trimming. Blank is stored as `null`. |
+| `is_active` | `PUT` only. Required JSON `true` or `false`; `"false"` and `0` are rejected. |
+
+A body that is not a JSON object, or a field of the wrong type, is a `400 VALIDATION_ERROR`.
 
 ### 3.2 Create a category (FR-010)
 
-`POST /api/categories`: `administrator` only.
+`POST /api/categories`: `administrator` only. **Implemented (#18).**
 
 ```json
 {"name": "Plumbing", "description": "Pipes and fittings"}
@@ -75,45 +86,52 @@ Errors: 401.
 `201` → `{"category_id": "…", "name": "Plumbing", "description": "Pipes and fittings", "is_active": true}`
 
 Errors:
-- `400 VALIDATION_ERROR`: name missing, blank, or more than 100 characters
-- `403 FORBIDDEN`: caller is not an administrator
+- `400 VALIDATION_ERROR`: see the validation table above
+- `401 UNAUTHENTICATED`: not logged in
+- `403 FORBIDDEN`: caller is not an administrator; nothing is created
 - `409 DUPLICATE_CATEGORY`: the name already exists (case-insensitive)
 
 ### 3.3 Update or deactivate a category (FR-010)
 
-`PUT /api/categories/{category_id}`: `administrator` only.
+`PUT /api/categories/{category_id}`: `administrator` only. **Implemented (#18).**
 
-Body: `name`, `description`, `is_active` (all required). `is_active: false` hides the category from new complaints but keeps it on existing ones.
+Body: `name`, `description`, `is_active` (all three keys required; `description` may be `null`). `is_active: false` hides the category from `GET /api/categories` and from new complaints (`POST /api/complaints` returns 400) but keeps it on existing ones.
 
-`200` → the updated category.
+```json
+{"name": "Plumbing", "description": "Pipes and fittings", "is_active": false}
+```
 
-Errors: 400, 403, `404 NOT_FOUND`, `409 DUPLICATE_CATEGORY`.
+`200` → the updated category, same shape as 3.2.
+
+Errors: `400 VALIDATION_ERROR`, `401`, `403`, `404 NOT_FOUND` (unknown id), `409 DUPLICATE_CATEGORY` (another category has the name; renaming a category to its own name in a different case is allowed).
 
 ### 3.4 Delete a category (FR-010)
 
-`DELETE /api/categories/{category_id}`: `administrator` only.
+`DELETE /api/categories/{category_id}`: `administrator` only. **Implemented (#18).**
 
-`204` if no complaint uses the category.
+`204` with an empty body if no complaint uses the category.
 
-Errors: 403, 404, `409 CATEGORY_IN_USE` when complaints reference it (the database foreign key blocks the delete; deactivate it instead).
+Errors: `401`, `403`, `404 NOT_FOUND`, `409 CATEGORY_IN_USE` when complaints reference it (checked first, and the database foreign key also blocks the delete; deactivate it with 3.3 instead).
 
 ### 3.5 List departments
 
-`GET /api/departments`: `administrator` only.
+`GET /api/departments`: `administrator` only. **Implemented (#18).**
 
-`200` → `{"items": [{"department_id": "…", "name": "Plumbing", "description": "…"}]}`
+`200` → `{"items": [{"department_id": "…", "name": "Plumbing", "description": "…"}]}`, sorted by name.
 
 Errors: 401, 403.
 
 ### 3.6 List a department's staff
 
-`GET /api/departments/{department_id}/staff`: `administrator` only.
+`GET /api/departments/{department_id}/staff`: `administrator` only. **Implemented (#18).**
 
-Returns active `maintenance_staff` users whose `department_id` matches.
+Returns active (`is_active = true`) `maintenance_staff` users whose `department_id` matches, sorted by name. Staff of other departments, inactive staff, residents and administrators are never listed.
 
-`200` → `{"items": [{"user_id": "…", "name": "Asha K"}]}`
+`200` → `{"items": [{"user_id": "…", "name": "Asha K"}]}` (an empty list if the department has no staff)
 
-Errors: 401, 403, 404.
+Errors: 401, 403, `404 NOT_FOUND` (unknown department id).
+
+All endpoints in 3.1–3.6 return `500 DATABASE_ERROR` with a generic message on a database failure; details are logged, never returned.
 
 ### 3.7 Assign or reassign a complaint (FR-011)
 

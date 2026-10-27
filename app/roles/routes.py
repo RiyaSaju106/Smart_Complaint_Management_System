@@ -1,7 +1,12 @@
 from flask import Blueprint, jsonify, redirect, render_template, session, url_for
 
-from app.access import ADMINISTRATOR, RESIDENT, error, role_required
-
+from app.access import (
+    ADMINISTRATOR,
+    MAINTENANCE_STAFF,
+    RESIDENT,
+    error,
+    role_required,
+)
 roles_bp = Blueprint("roles", __name__)
 
 
@@ -15,14 +20,22 @@ def home():
         return redirect(url_for("roles.admin_home"))
     if role == RESIDENT:
         return redirect(url_for("roles.resident_home"))
+    if role == MAINTENANCE_STAFF:
+        return redirect(url_for("roles.maintenance_home"))
     return error(403, "FORBIDDEN", "Unknown role.")
-
 
 @roles_bp.route("/resident")
 @role_required(RESIDENT)
 def resident_home():
     return render_template("resident_home.html", name=session.get("name"))
 
+@roles_bp.route("/staff")
+@role_required(MAINTENANCE_STAFF)
+def maintenance_home():
+    return render_template(
+        "maintenance_home.html",
+        name=session.get("name"),
+    )
 
 @roles_bp.route("/admin")
 @role_required(ADMINISTRATOR)

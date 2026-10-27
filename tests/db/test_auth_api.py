@@ -1,4 +1,4 @@
-
+from datetime import timedelta
 import pytest
 
 from app import create_app
@@ -278,3 +278,118 @@ def test_profile_update_requires_login(client):
     )
 
     assert response.status_code == 401
+def test_login_uses_generic_error_for_unknown_email_and_wrong_password(
+    client, conn
+):
+    create_test_user(conn)
+
+    wrong_password = client.post(
+        "/api/auth/login",
+        json={
+            "email": "login@example.com",
+            "password": "Wrong123!",
+        },
+    )
+
+    unknown_email = client.post(
+        "/api/auth/login",
+        json={
+            "email": "missing@example.com",
+            "password": "Wrong123!",
+        },
+    )
+
+    assert wrong_password.status_code == 401
+    assert unknown_email.status_code == 401
+    assert wrong_password.get_json() == unknown_email.get_json()
+
+
+def test_login_session_is_permanent_and_contains_no_password_data(
+    client, conn
+):
+    create_test_user(conn)
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "login@example.com",
+            "password": "Secret123!",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert "password" not in body["user"]
+    assert "password_hash" not in body["user"]
+
+    with client.session_transaction() as session:
+        assert session.permanent is True
+        assert "password" not in session
+        assert "password_hash" not in session
+
+
+def test_invalid_user_session_is_rejected_and_cleared(client):
+    with client.session_transaction() as session:
+        session["user_id"] = str(uuid.uuid4())
+        session["role"] = "resident"
+        session["name"] = "Ghost User"
+
+    response = client.get("/api/users/me")
+
+    assert response.status_code == 401
+
+    with client.session_transaction() as session:
+        assert "user_id" not in session
+        assert "role" not in session
+
+
+def test_expired_session_is_rejected(client, conn):
+    create_test_user(conn)
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "login@example.com",
+            "password": "Secret123!",
+        },
+    )
+
+    assert response.status_code == 200
+
+    # Force existing signed session cookies to be considered expired.
+    client.application.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
+        seconds=-1
+    )
+
+    response = client.get("/api/users/me")
+
+    assert response.status_code == 401
+
+
+def test_maintenance_staff_can_authenticate_with_maintenance_role(
+    client, conn
+):
+    user_id = create_test_user(
+        conn,
+        email="staff@example.com",
+        password="Secret123!",
+        role="maintenance_staff",
+    )
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "staff@example.com",
+            "password": "Secret123!",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["user"]["user_id"] == user_id
+    assert body["user"]["role"] == "maintenance_staff"
+
+    with client.session_transaction() as session:
+        assert session["role"] == "maintenance_staff"

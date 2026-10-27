@@ -265,6 +265,7 @@ def close_complaint(complaint_id):
 
     # FR-019: tell the resident, after the change is committed. notify() never raises.
     notifications.notify(notifications.COMPLAINT_CLOSED, complaint_id, [complaint["resident_id"]])
+
     return jsonify({
         "status": "success",
         "message": "Complaint has been closed.",

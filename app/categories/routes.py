@@ -15,13 +15,8 @@ from flask import Blueprint, current_app, jsonify, request, session
 
 from app.access import ADMINISTRATOR, error, role_required
 from app.notifications import service as notifications
+from app.tracking.service import record_status_change
 from db.connection import get_connection
-
-try:
-    # Shared status-history writer, owned by #26 (location and interface being agreed there).
-    from app.tracking.service import record_status_change
-except ImportError:  # TODO(#26): remove this fallback and the 503 below once #26 is merged
-    record_status_change = None
 
 from . import queries, schema
 
@@ -239,13 +234,6 @@ def assign_complaint(complaint_id):
             if status in UNASSIGNABLE_STATUSES:
                 return error(
                     409, "INVALID_STATE", f"A {status} complaint cannot be assigned."
-                )
-            if status == "submitted" and record_status_change is None:
-                # A first assignment must record submitted -> assigned; without #26 it cannot.
-                return error(
-                    503,
-                    "STATUS_HISTORY_UNAVAILABLE",
-                    "First assignment is not available until status history (#26) is in place.",
                 )
             if not queries.department_exists(cur, department_id):
                 return _validation_error("Department does not exist.")

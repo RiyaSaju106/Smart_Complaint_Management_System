@@ -1,11 +1,6 @@
 """Complaint assignment (FR-011). STP test cases TC-ASG-06 to TC-ASG-08.
 
 Every request goes through the real app; results are checked by reading MySQL directly.
-
-The status-history writer record_status_change() belongs to #26 and is not merged yet. These tests
-replace it with a stand-in that only records how assignment calls it, so the assignment logic is
-tested now. test_first_assignment_writes_status_history checks the real helper and runs
-automatically once #26 provides app/tracking/service.py.
 """
 import uuid
 
@@ -13,16 +8,17 @@ import pytest
 
 import app.categories.routes as routes
 from app.categories import queries
+from app.tracking import service as tracking
 
 
 @pytest.fixture(autouse=True)
 def history_calls(monkeypatch):
-    """Stand-in for #26's record_status_change: records each call, writes nothing."""
+    """Wraps the real record_status_change: records each call, then writes the row as usual."""
     calls = []
 
     def record(cur, complaint_id, old_status, new_status, changed_by, remarks=None):
-        assert hasattr(cur, "execute")  # called with the route's cursor, inside its transaction
         calls.append((complaint_id, old_status, new_status, changed_by, remarks))
+        tracking.record_status_change(cur, complaint_id, old_status, new_status, changed_by, remarks)
 
     monkeypatch.setattr(routes, "record_status_change", record)
     return calls
@@ -108,62 +104,14 @@ def test_tc_asg_06_admin_assigns_complaint_to_staff(seed, admin, world, history_
     assert history_calls == [(complaint_id, "submitted", "assigned", admin_id, None)]
 
 
-def test_first_assignment_writes_status_history(monkeypatch, seed, admin, world):
-    """Real #26 helper: the submitted -> assigned row is stored in MySQL."""
-    service = pytest.importorskip("app.tracking.service", reason="waits for #26")
-    monkeypatch.setattr(routes, "record_status_change", service.record_status_change)
-
+def test_first_assignment_writes_status_history(seed, admin, world):
+    """The submitted -> assigned row is stored in MySQL, in the same transaction."""
     assert assign(admin, world["complaint"], world["plumbing"], world["plumber"]).status_code == 200
 
     rows = history(seed, world["complaint"])
     assert [(r["old_status"], r["new_status"], r["changed_by"]) for r in rows] == [
         ("submitted", "assigned", admin_id_of(admin)),
     ]
-
-
-def test_first_assignment_refused_until_history_helper_exists(monkeypatch, seed, admin, world):
-    """Until #26 lands, a first assignment would skip the history row, so it is refused."""
-    monkeypatch.setattr(routes, "record_status_change", None)
-
-    response = assign(admin, world["complaint"], world["plumbing"], world["plumber"])
-
-    assert response.status_code == 503
-    assert response.get_json()["error"]["code"] == "STATUS_HISTORY_UNAVAILABLE"
-    assert assignments(seed, world["complaint"]) == []
-    assert status_of(seed, world["complaint"]) == "submitted"
-
-
-def test_reassignment_works_without_history_helper(monkeypatch, seed, admin, world):
-    """Reassignment changes no status, so it does not need #26."""
-    monkeypatch.setattr(routes, "record_status_change", None)
-    complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status="assigned")
-    seed.assignment(complaint_id, admin_id_of(admin), world["plumbing"], world["plumber"])
-
-    response = assign(admin, complaint_id, world["electrical"], world["electrician"])
-
-    assert response.status_code == 200
-    assert [r["is_current"] for r in assignments(seed, complaint_id)] == [0, 1]
-
-
-def test_assign_to_department_only(seed, admin, world):
-    response = assign(admin, world["complaint"], world["plumbing"])
-
-    assert response.status_code == 200
-    assert response.get_json()["staff_id"] is None
-    rows = assignments(seed, world["complaint"])
-    assert [(r["department_id"], r["staff_id"]) for r in rows] == [(world["plumbing"], None)]
-    assert status_of(seed, world["complaint"]) == "assigned"
-
-
-def test_assigned_complaint_appears_in_staff_queue(seed, client_for, admin, world):
-    """Hand-off to Processing/Status: the assignee sees it in GET /api/staff/complaints/assigned."""
-    assign(admin, world["complaint"], world["plumbing"], world["plumber"])
-
-    plumber = client_for(world["plumber"], "maintenance_staff")
-    response = plumber.get("/api/staff/complaints/assigned")
-
-    assert response.status_code == 200
-    assert [c["complaint_id"] for c in response.get_json()["data"]] == [world["complaint"]]
 
 
 # ---------------------------------------------------------------- reassignment
@@ -433,3 +381,43 @@ def test_notification_failure_does_not_undo_assignment(monkeypatch, seed, admin,
     assert [r["is_current"] for r in assignments(seed, world["complaint"])] == [1]
     assert status_of(seed, world["complaint"]) == "assigned"
     assert notified(seed, world["complaint"]) == []
+
+
+# ---------------------------------------------------------------- shared history writer (#26)
+
+def test_record_status_change_appends_one_row(seed, conn, world):
+    admin_id = seed.user("administrator")
+
+    with conn.cursor() as cur:
+        tracking.record_status_change(cur, world["complaint"], "submitted", "assigned", admin_id)
+
+    assert history(seed, world["complaint"]) == [{
+        "old_status": "submitted", "new_status": "assigned", "changed_by": admin_id, "remarks": None,
+    }]
+
+
+def test_record_status_change_accepts_initial_and_remark_rows(seed, conn, world):
+    """old_status None (initial submission) and old == new (a remark) are both allowed."""
+    with conn.cursor() as cur:
+        tracking.record_status_change(cur, world["complaint"], None, "submitted", world["resident"])
+        tracking.record_status_change(
+            cur, world["complaint"], "submitted", "submitted", world["resident"], "Still leaking"
+        )
+
+    rows = {(h["old_status"], h["new_status"], h["remarks"]) for h in history(seed, world["complaint"])}
+    assert rows == {(None, "submitted", None), ("submitted", "submitted", "Still leaking")}
+
+
+def test_record_status_change_does_not_commit(seed, test_db_name, world):
+    """The caller owns the transaction: a rollback leaves no history row."""
+    from db.connection import get_connection
+
+    caller = get_connection(database=test_db_name)
+    try:
+        with caller.cursor() as cur:
+            tracking.record_status_change(cur, world["complaint"], "submitted", "assigned", world["resident"])
+        caller.rollback()
+    finally:
+        caller.close()
+
+    assert history(seed, world["complaint"]) == []

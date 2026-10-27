@@ -18,6 +18,7 @@ import pymysql
 from flask import Blueprint, current_app, jsonify, request, session
 
 from app.access import ADMINISTRATOR, RESIDENT, error, role_required
+from app.notifications import service as notifications
 from db.connection import get_connection
 
 from . import queries, schema  # relative: works whatever this folder is named
@@ -128,6 +129,13 @@ def update_status(complaint_id):
     finally:
         conn.close()
 
+    # FR-019: tell the resident, after the change is committed. notify() never raises.
+    event = (
+        notifications.COMPLAINT_RESOLVED if new_status == "resolved"
+        else notifications.STATUS_CHANGED
+    )
+    notifications.notify(event, complaint_id, [complaint["resident_id"]], new_status=new_status)
+
     return jsonify({
         "status": "success",
         "message": f"Complaint status updated from {old_status} to {new_status}.",
@@ -185,6 +193,9 @@ def close_complaint(complaint_id):
         raise
     finally:
         conn.close()
+
+    # FR-019: tell the resident, after the change is committed. notify() never raises.
+    notifications.notify(notifications.COMPLAINT_CLOSED, complaint_id, [complaint["resident_id"]])
 
     return jsonify({
         "status": "success",

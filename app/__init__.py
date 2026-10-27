@@ -62,6 +62,7 @@ def create_app():
     from app.complaints import routes as complaints_routes
     from app.categories import categories_bp
     from process import processing_bp
+    from app.notifications.routes import notifications_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
@@ -69,5 +70,6 @@ def create_app():
     app.register_blueprint(complaints_bp)
     app.register_blueprint(categories_bp)
     app.register_blueprint(processing_bp)
+    app.register_blueprint(notifications_bp)
 
     return app

@@ -1,13 +1,31 @@
 """Complaint assignment (FR-011). STP test cases TC-ASG-06 to TC-ASG-08.
 
 Every request goes through the real app; results are checked by reading MySQL directly.
+
+The status-history writer record_status_change() belongs to #26 and is not merged yet. These tests
+replace it with a stand-in that only records how assignment calls it, so the assignment logic is
+tested now. test_first_assignment_writes_status_history checks the real helper and runs
+automatically once #26 provides app/tracking/service.py.
 """
 import uuid
 
 import pytest
 
+import app.categories.routes as routes
 from app.categories import queries
-from app.tracking.service import record_status_change
+
+
+@pytest.fixture(autouse=True)
+def history_calls(monkeypatch):
+    """Stand-in for #26's record_status_change: records each call, writes nothing."""
+    calls = []
+
+    def record(cur, complaint_id, old_status, new_status, changed_by, remarks=None):
+        assert hasattr(cur, "execute")  # called with the route's cursor, inside its transaction
+        calls.append((complaint_id, old_status, new_status, changed_by, remarks))
+
+    monkeypatch.setattr(routes, "record_status_change", record)
+    return calls
 
 
 @pytest.fixture
@@ -64,7 +82,7 @@ def admin_id_of(admin):
 
 # ---------------------------------------------------------------- first assignment
 
-def test_tc_asg_06_admin_assigns_complaint_to_staff(seed, admin, world):
+def test_tc_asg_06_admin_assigns_complaint_to_staff(seed, admin, world, history_calls):
     complaint_id = world["complaint"]
 
     response = assign(admin, complaint_id, world["plumbing"], world["plumber"])
@@ -87,9 +105,44 @@ def test_tc_asg_06_admin_assigns_complaint_to_staff(seed, admin, world):
     assert rows[0]["assigned_at"].isoformat() == body["assigned_at"]
 
     assert status_of(seed, complaint_id) == "assigned"
-    assert history(seed, complaint_id) == [{
-        "old_status": "submitted", "new_status": "assigned", "changed_by": admin_id, "remarks": None,
-    }]
+    assert history_calls == [(complaint_id, "submitted", "assigned", admin_id, None)]
+
+
+def test_first_assignment_writes_status_history(monkeypatch, seed, admin, world):
+    """Real #26 helper: the submitted -> assigned row is stored in MySQL."""
+    service = pytest.importorskip("app.tracking.service", reason="waits for #26")
+    monkeypatch.setattr(routes, "record_status_change", service.record_status_change)
+
+    assert assign(admin, world["complaint"], world["plumbing"], world["plumber"]).status_code == 200
+
+    rows = history(seed, world["complaint"])
+    assert [(r["old_status"], r["new_status"], r["changed_by"]) for r in rows] == [
+        ("submitted", "assigned", admin_id_of(admin)),
+    ]
+
+
+def test_first_assignment_refused_until_history_helper_exists(monkeypatch, seed, admin, world):
+    """Until #26 lands, a first assignment would skip the history row, so it is refused."""
+    monkeypatch.setattr(routes, "record_status_change", None)
+
+    response = assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+
+    assert response.status_code == 503
+    assert response.get_json()["error"]["code"] == "STATUS_HISTORY_UNAVAILABLE"
+    assert assignments(seed, world["complaint"]) == []
+    assert status_of(seed, world["complaint"]) == "submitted"
+
+
+def test_reassignment_works_without_history_helper(monkeypatch, seed, admin, world):
+    """Reassignment changes no status, so it does not need #26."""
+    monkeypatch.setattr(routes, "record_status_change", None)
+    complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status="assigned")
+    seed.assignment(complaint_id, admin_id_of(admin), world["plumbing"], world["plumber"])
+
+    response = assign(admin, complaint_id, world["electrical"], world["electrician"])
+
+    assert response.status_code == 200
+    assert [r["is_current"] for r in assignments(seed, complaint_id)] == [0, 1]
 
 
 def test_assign_to_department_only(seed, admin, world):
@@ -116,7 +169,7 @@ def test_assigned_complaint_appears_in_staff_queue(seed, client_for, admin, worl
 # ---------------------------------------------------------------- reassignment
 
 @pytest.mark.parametrize("status", ["assigned", "in_progress"])
-def test_reassignment_keeps_history_and_status(seed, admin, world, status):
+def test_reassignment_keeps_history_and_status(seed, admin, world, status, history_calls):
     complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status=status)
     seed.assignment(complaint_id, admin_id_of(admin), world["plumbing"], world["plumber"])
 
@@ -130,10 +183,10 @@ def test_reassignment_keeps_history_and_status(seed, admin, world, status):
         (world["electrical"], world["electrician"], 1),
     ]
     assert status_of(seed, complaint_id) == status
-    assert history(seed, complaint_id) == []              # reassignment is not a status change
+    assert history_calls == []                            # reassignment is not a status change
 
 
-def test_repeated_reassignment_leaves_exactly_one_current(seed, admin, world):
+def test_repeated_reassignment_leaves_exactly_one_current(seed, admin, world, history_calls):
     complaint_id = world["complaint"]
     for department, staff in [
         ("plumbing", "plumber"), ("electrical", "electrician"), ("plumbing", None),
@@ -144,7 +197,7 @@ def test_repeated_reassignment_leaves_exactly_one_current(seed, admin, world):
     rows = assignments(seed, complaint_id)
     assert len(rows) == 3
     assert [r["is_current"] for r in rows].count(1) == 1
-    assert len(history(seed, complaint_id)) == 1          # only the first assignment
+    assert len(history_calls) == 1                        # only the first assignment
 
 
 def test_reassigned_complaint_moves_to_new_staff_queue(seed, client_for, admin, world):
@@ -164,7 +217,9 @@ def test_reassigned_complaint_moves_to_new_staff_queue(seed, client_for, admin, 
 @pytest.mark.parametrize("client_name, status", [
     ("resident", 403), ("staff", 403), ("anonymous", 401),
 ])
-def test_tc_asg_07_non_admin_cannot_assign(request, seed, client_for, world, client_name, status):
+def test_tc_asg_07_non_admin_cannot_assign(
+    request, seed, client_for, world, client_name, status, history_calls
+):
     client = client_for() if client_name == "anonymous" else request.getfixturevalue(client_name)
 
     response = assign(client, world["complaint"], world["plumbing"], world["plumber"])
@@ -172,7 +227,7 @@ def test_tc_asg_07_non_admin_cannot_assign(request, seed, client_for, world, cli
     assert response.status_code == status
     assert status_of(seed, world["complaint"]) == "submitted"
     assert assignments(seed, world["complaint"]) == []
-    assert history(seed, world["complaint"]) == []
+    assert history_calls == []
 
 
 # ---------------------------------------------------------------- closed and resolved
@@ -210,7 +265,7 @@ def test_unknown_department_is_rejected(seed, admin, world):
 @pytest.mark.parametrize("who", [
     "staff of another department", "inactive staff", "resident", "administrator", "unknown user",
 ])
-def test_ineligible_staff_is_rejected(seed, admin, world, who):
+def test_ineligible_staff_is_rejected(seed, admin, world, who, history_calls):
     staff_id = {
         "staff of another department": lambda: world["electrician"],
         "inactive staff": lambda: seed.user("maintenance_staff", world["plumbing"], active=False),
@@ -225,7 +280,7 @@ def test_ineligible_staff_is_rejected(seed, admin, world, who):
     assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
     assert assignments(seed, world["complaint"]) == []
     assert status_of(seed, world["complaint"]) == "submitted"
-    assert history(seed, world["complaint"]) == []
+    assert history_calls == []
 
 
 @pytest.mark.parametrize("body", [
@@ -255,7 +310,7 @@ def test_failure_mid_assignment_rolls_everything_back(monkeypatch, seed, admin, 
     def broken(*args, **kwargs):
         raise RuntimeError("history write failed")
 
-    monkeypatch.setattr("app.categories.routes.record_status_change", broken)
+    monkeypatch.setattr(routes, "record_status_change", broken)
     admin.application.config["PROPAGATE_EXCEPTIONS"] = False
 
     response = assign(admin, world["complaint"], world["plumbing"], world["plumber"])
@@ -263,12 +318,11 @@ def test_failure_mid_assignment_rolls_everything_back(monkeypatch, seed, admin, 
     assert response.status_code == 500
     assert assignments(seed, world["complaint"]) == []
     assert status_of(seed, world["complaint"]) == "submitted"
-    assert history(seed, world["complaint"]) == []
 
 
 # ---------------------------------------------------------------- end to end with #17 and #18
 
-def test_assign_complaint_created_through_the_api(seed, client_for, admin, resident):
+def test_assign_complaint_created_through_the_api(seed, client_for, admin, resident, history_calls):
     plumbing = seed.department("Plumbing")
     plumber = seed.user("maintenance_staff", plumbing, name="Asha K")
     category_id = admin.post("/api/categories", json={"name": "Plumbing"}).get_json()["category_id"]
@@ -286,9 +340,7 @@ def test_assign_complaint_created_through_the_api(seed, client_for, admin, resid
     assert response.status_code == 200
     assert status_of(seed, complaint_id) == "assigned"
     assert [r["is_current"] for r in assignments(seed, complaint_id)] == [1]
-    assert [(h["old_status"], h["new_status"]) for h in history(seed, complaint_id)] == [
-        ("submitted", "assigned"),
-    ]
+    assert [(c[1], c[2]) for c in history_calls] == [("submitted", "assigned")]
 
 
 # ---------------------------------------------------------------- shared helpers
@@ -305,15 +357,3 @@ def test_get_current_assignment_helper(seed, conn, world):
     assert current["department_id"] == world["plumbing"]
     assert current["staff_id"] == world["plumber"]
     assert current["assigned_at"] is not None
-
-
-def test_record_status_change_appends_one_row(seed, conn, world):
-    admin_id = seed.user("administrator")
-
-    with conn.cursor() as cur:
-        record_status_change(cur, world["complaint"], "submitted", "assigned", admin_id, "Routed")
-
-    assert history(seed, world["complaint"]) == [{
-        "old_status": "submitted", "new_status": "assigned", "changed_by": admin_id,
-        "remarks": "Routed",
-    }]

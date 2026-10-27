@@ -27,7 +27,7 @@
 | `get_active_category(cur, category_id)` in `app/categories/queries.py` | Complaint (Riya) on `POST /api/complaints` | Returns the category, or `None` if it does not exist or is inactive. The caller returns **400** (see 5). Takes the caller's cursor so it runs inside the caller's transaction. The Complaint module currently has an equivalent query of its own in `app/complaints/queries.py`. |
 | `get_department_staff_member(cur, department_id, user_id)` in `app/categories/queries.py` | Category/Assignment (assignment, #19) | Returns `{user_id, name}` if the user is an active `maintenance_staff` member of that department, otherwise `None`. Same rule as 3.6. |
 | `get_current_assignment(cur, complaint_id)` in `app/categories/queries.py` | Processing/Status (Ritu), Notification (Rohan) | Returns `department_id`, `staff_id`, `assigned_at`, or `None`. |
-| `record_status_change(cur, complaint_id, old_status, new_status, changed_by, remarks=None)` in `app/tracking/service.py` | Complaint (initial `submitted` row), Category/Assignment, Processing/Status | Inserts one `status_history` row using the caller's cursor, so it is part of the caller's transaction. Never updates or deletes rows. Added by #19 (first user); owned and extended by #26. |
+| `record_status_change(cur, complaint_id, old_status, new_status, changed_by, remarks=None)`, proposed for `app/tracking/service.py` | Complaint (initial `submitted` row), Category/Assignment, Processing/Status | Inserts one `status_history` row using the caller's cursor, so it is part of the caller's transaction. Never updates or deletes rows. **Owned by #26; location and interface being agreed there.** |
 
 ### Interfaces used from other modules
 
@@ -145,7 +145,7 @@ All endpoints in 3.1–3.6 return `500 DATABASE_ERROR` with a generic message on
 
 The same endpoint handles the first assignment and every reassignment. In one transaction, with the complaint row locked:
 1. Mark the current assignment row (if any) `is_current = false`; insert the new row with `is_current = true`, `assigned_by` = the administrator and `assigned_at` set by MySQL. Earlier rows are never deleted, and the database allows only one current row per complaint.
-2. If the status is `submitted`, change it to `assigned` and call `record_status_change(cur, complaint_id, "submitted", "assigned", admin_id)`. Reassigning an `assigned` or `in_progress` complaint does not change its status and writes no history row; the complaint moves to the new staff member's queue (`GET /api/staff/complaints/assigned` reads the current assignment).
+2. If the status is `submitted`, change it to `assigned` and call `record_status_change(cur, complaint_id, "submitted", "assigned", admin_id)` (#26). **Until #26 is merged** a first assignment returns `503 STATUS_HISTORY_UNAVAILABLE` and saves nothing, so no status change is ever made without its history row; reassignment works already. Marked `TODO(#26)` in `app/categories/routes.py`. Reassigning an `assigned` or `in_progress` complaint does not change its status and writes no history row; the complaint moves to the new staff member's queue (`GET /api/staff/complaints/assigned` reads the current assignment).
 3. After commit, call `notify(COMPLAINT_ASSIGNED, complaint_id, [resident_id, staff_id])`. **Not wired yet:** waits for the Notification module (#42 / #28); marked `TODO(#28)` in `app/categories/routes.py`. `notify()` never raises, so it cannot fail the assignment.
 
 Any failure rolls the whole transaction back: no assignment row, no status change, no history row.
@@ -170,6 +170,7 @@ Errors:
 - `404 NOT_FOUND`: complaint does not exist
 - `409 INVALID_STATE`: complaint is `resolved` or `closed`; no assignment created
 - `500 DATABASE_ERROR`: database failure; nothing is saved
+- `503 STATUS_HISTORY_UNAVAILABLE`: temporary, first assignment only, until #26 is merged
 
 ## 4. Search/Tracking endpoints
 

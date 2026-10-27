@@ -5,6 +5,7 @@ error_message is None when the input is valid.
 
 Limits match db/schema.sql: categories.name VARCHAR(100), categories.description VARCHAR(255).
 """
+import uuid
 
 MAX_NAME = 100
 MAX_DESCRIPTION = 255
@@ -74,3 +75,33 @@ def parse_include_inactive(value):
     if value == "true":
         return True, None
     return None, "'include_inactive' must be 'true' or 'false'."
+
+
+def _uuid_field(data, name):
+    value = data.get(name)
+    if not isinstance(value, str) or not value.strip():
+        return None, f"'{name}' is required and must be a string."
+    value = value.strip()
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return None, f"'{name}' must be a valid UUID."
+    return value, None
+
+
+def parse_assignment(data):
+    """POST /api/complaints/<id>/assignment body: {department_id, staff_id?}.
+
+    staff_id may be missing or null (assign to the department only).
+    """
+    if not isinstance(data, dict):
+        return None, "Please provide a JSON object."
+    department_id, problem = _uuid_field(data, "department_id")
+    if problem:
+        return None, problem
+    staff_id = None
+    if data.get("staff_id") is not None:
+        staff_id, problem = _uuid_field(data, "staff_id")
+        if problem:
+            return None, problem
+    return {"department_id": department_id, "staff_id": staff_id}, None

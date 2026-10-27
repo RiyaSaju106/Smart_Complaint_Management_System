@@ -10,6 +10,7 @@ import uuid
 import pytest
 from flask import Flask, jsonify, request, session
 
+import app.notifications.service as notification_service
 import process.routes as routes
 from db.apply_schema import apply_schema
 from db.connection import get_connection as _real_get_connection
@@ -128,6 +129,9 @@ def seed(conn):
 @pytest.fixture
 def app(monkeypatch, test_db_name):
     monkeypatch.setattr(routes, "get_connection", lambda: _real_get_connection(database=test_db_name))
+    # The routes call notify() after each change; keep its writes in the test database too.
+    monkeypatch.setattr(notification_service, "get_connection",
+                        lambda: _real_get_connection(database=test_db_name))
     flask_app = Flask(__name__)
     flask_app.config.update(SECRET_KEY="test-only", TESTING=True)
     flask_app.register_blueprint(routes.processing_bp)

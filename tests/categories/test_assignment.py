@@ -279,7 +279,7 @@ def test_assign_complaint_created_through_the_api(seed, client_for, admin, resid
         "description": "Water leaks from the kitchen tap.", "location": "Block A, Unit 101",
     })
     assert created.status_code == 201
-    complaint_id = created.get_json()["complaint"]["complaint_id"]
+    complaint_id = created.get_json()["data"]["complaint_id"]
     staff_listed = admin.get(f"/api/departments/{plumbing}/staff").get_json()["items"]
     assert [s["user_id"] for s in staff_listed] == [plumber]
 

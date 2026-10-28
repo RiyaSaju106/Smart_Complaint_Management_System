@@ -19,7 +19,7 @@ from werkzeug.utils import secure_filename
 
 from app.access import RESIDENT, error, role_required
 from db.connection import get_connection
-
+from app.tracking.service import record_status_change
 from . import complaints_bp
 from . import schema
 from . import queries
@@ -66,8 +66,6 @@ def _complaint_id(resident_id, idempotency_key):
             idempotency_key,
         )
     )
-
-
 def _submission_response(row, created):
     if created:
         message = "Complaint submitted successfully."
@@ -76,17 +74,15 @@ def _submission_response(row, created):
         message = "Complaint already submitted."
         status_code = 200
 
-    return jsonify(
-        {
-            "message": message,
-            "complaint": {
-                "complaint_id": row["complaint_id"],
-                "status": row["status"],
-                "created_at": _iso(row["created_at"]),
-            },
-        }
-    ), status_code
-
+    return jsonify({
+        "status": "success",
+        "message": message,
+        "data": {
+            "complaint_id": row["complaint_id"],
+            "status": row["status"],
+            "created_at": _iso(row["created_at"]),
+        },
+    }), status_code
 
 @complaints_bp.post("/complaints")
 @role_required(RESIDENT)
@@ -161,6 +157,14 @@ def submit_complaint():
                 complaint_id,
                 resident_id,
                 parsed,
+            )
+
+            record_status_change(
+                cur,
+                complaint_id,
+                None,
+                "submitted",
+                resident_id,
             )
 
             row = queries.get_complaint(

@@ -198,7 +198,7 @@ def test_submit_valid_complaint(
     assert response.status_code == 201
 
     body = response.get_json()[
-        "complaint"
+        "data"
     ]
 
     assert len(
@@ -398,13 +398,13 @@ def test_multiple_submissions_receive_unique_ids(
 
     first_id = (
         first.get_json()
-        ["complaint"]
+        ["data"]
         ["complaint_id"]
     )
 
     second_id = (
         second.get_json()
-        ["complaint"]
+        ["data"]
         ["complaint_id"]
     )
 
@@ -450,13 +450,13 @@ def test_retry_with_same_idempotency_key_does_not_duplicate(
 
     first_id = (
         first.get_json()
-        ["complaint"]
+        ["data"]
         ["complaint_id"]
     )
 
     second_id = (
         second.get_json()
-        ["complaint"]
+        ["data"]
         ["complaint_id"]
     )
 
@@ -536,7 +536,7 @@ def create_complaint_for_attachment(
 
     complaint_id = (
         response.get_json()
-        ["complaint"]
+        ["data"]
         ["complaint_id"]
     )
 

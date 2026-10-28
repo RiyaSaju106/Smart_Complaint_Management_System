@@ -1,0 +1,423 @@
+"""Complaint assignment (FR-011). STP test cases TC-ASG-06 to TC-ASG-08.
+
+Every request goes through the real app; results are checked by reading MySQL directly.
+"""
+import uuid
+
+import pytest
+
+import app.categories.routes as routes
+from app.categories import queries
+from app.tracking import service as tracking
+
+
+@pytest.fixture(autouse=True)
+def history_calls(monkeypatch):
+    """Wraps the real record_status_change: records each call, then writes the row as usual."""
+    calls = []
+
+    def record(cur, complaint_id, old_status, new_status, changed_by, remarks=None):
+        calls.append((complaint_id, old_status, new_status, changed_by, remarks))
+        tracking.record_status_change(cur, complaint_id, old_status, new_status, changed_by, remarks)
+
+    monkeypatch.setattr(routes, "record_status_change", record)
+    return calls
+
+
+@pytest.fixture
+def world(seed):
+    """A submitted complaint, two departments, and a staff member in each."""
+    plumbing = seed.department("Plumbing")
+    electrical = seed.department("Electrical")
+    resident_id = seed.user("resident")
+    return {
+        "plumbing": plumbing,
+        "electrical": electrical,
+        "plumber": seed.user("maintenance_staff", plumbing, name="Asha K"),
+        "electrician": seed.user("maintenance_staff", electrical, name="Bala R"),
+        "resident": resident_id,
+        "complaint": seed.complaint(resident_id, seed.category("Water Supply")),
+    }
+
+
+def assign(client, complaint_id, department_id, staff_id=None):
+    body = {"department_id": department_id}
+    if staff_id is not None:
+        body["staff_id"] = staff_id
+    return client.post(f"/api/complaints/{complaint_id}/assignment", json=body)
+
+
+def assignments(seed, complaint_id):
+    with seed.conn.cursor() as cur:
+        cur.execute(
+            "SELECT assigned_by, department_id, staff_id, is_current, assigned_at FROM assignments "
+            "WHERE complaint_id = %s ORDER BY is_current, assigned_at",
+            (complaint_id,),
+        )
+        return list(cur.fetchall())
+
+
+def history(seed, complaint_id):
+    with seed.conn.cursor() as cur:
+        cur.execute(
+            "SELECT old_status, new_status, changed_by, remarks FROM status_history "
+            "WHERE complaint_id = %s ORDER BY changed_at",
+            (complaint_id,),
+        )
+        return list(cur.fetchall())
+
+
+def status_of(seed, complaint_id):
+    return seed.scalar("SELECT status FROM complaints WHERE complaint_id = %s", (complaint_id,))
+
+
+def admin_id_of(admin):
+    with admin.session_transaction() as sess:
+        return sess["user_id"]
+
+
+# ---------------------------------------------------------------- first assignment
+
+def test_tc_asg_06_admin_assigns_complaint_to_staff(seed, admin, world, history_calls):
+    complaint_id = world["complaint"]
+
+    response = assign(admin, complaint_id, world["plumbing"], world["plumber"])
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["complaint_id"] == complaint_id
+    assert body["status"] == "assigned"
+    assert body["department_id"] == world["plumbing"]
+    assert body["staff_id"] == world["plumber"]
+    assert body["assigned_at"]
+
+    admin_id = admin_id_of(admin)
+    rows = assignments(seed, complaint_id)
+    assert len(rows) == 1
+    assert rows[0]["assigned_by"] == admin_id
+    assert rows[0]["department_id"] == world["plumbing"]
+    assert rows[0]["staff_id"] == world["plumber"]
+    assert rows[0]["is_current"] == 1
+    assert rows[0]["assigned_at"].isoformat() == body["assigned_at"]
+
+    assert status_of(seed, complaint_id) == "assigned"
+    assert history_calls == [(complaint_id, "submitted", "assigned", admin_id, None)]
+
+
+def test_first_assignment_writes_status_history(seed, admin, world):
+    """The submitted -> assigned row is stored in MySQL, in the same transaction."""
+    assert assign(admin, world["complaint"], world["plumbing"], world["plumber"]).status_code == 200
+
+    rows = history(seed, world["complaint"])
+    assert [(r["old_status"], r["new_status"], r["changed_by"]) for r in rows] == [
+        ("submitted", "assigned", admin_id_of(admin)),
+    ]
+
+
+# ---------------------------------------------------------------- reassignment
+
+@pytest.mark.parametrize("status", ["assigned", "in_progress"])
+def test_reassignment_keeps_history_and_status(seed, admin, world, status, history_calls):
+    complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status=status)
+    seed.assignment(complaint_id, admin_id_of(admin), world["plumbing"], world["plumber"])
+
+    response = assign(admin, complaint_id, world["electrical"], world["electrician"])
+
+    assert response.status_code == 200
+    assert response.get_json()["status"] == status
+    rows = assignments(seed, complaint_id)
+    assert [(r["department_id"], r["staff_id"], r["is_current"]) for r in rows] == [
+        (world["plumbing"], world["plumber"], 0),         # old row kept, no longer current
+        (world["electrical"], world["electrician"], 1),
+    ]
+    assert status_of(seed, complaint_id) == status
+    assert history_calls == []                            # reassignment is not a status change
+
+
+def test_repeated_reassignment_leaves_exactly_one_current(seed, admin, world, history_calls):
+    complaint_id = world["complaint"]
+    for department, staff in [
+        ("plumbing", "plumber"), ("electrical", "electrician"), ("plumbing", None),
+    ]:
+        staff_id = world[staff] if staff else None
+        assert assign(admin, complaint_id, world[department], staff_id).status_code == 200
+
+    rows = assignments(seed, complaint_id)
+    assert len(rows) == 3
+    assert [r["is_current"] for r in rows].count(1) == 1
+    assert len(history_calls) == 1                        # only the first assignment
+
+
+def test_reassigned_complaint_moves_to_new_staff_queue(seed, client_for, admin, world):
+    assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+    assign(admin, world["complaint"], world["electrical"], world["electrician"])
+
+    def queue(staff_id):
+        client = client_for(staff_id, "maintenance_staff")
+        return [c["complaint_id"] for c in client.get("/api/staff/complaints/assigned").get_json()["data"]]
+
+    assert queue(world["plumber"]) == []
+    assert queue(world["electrician"]) == [world["complaint"]]
+
+
+# ---------------------------------------------------------------- access control
+
+@pytest.mark.parametrize("client_name, status", [
+    ("resident", 403), ("staff", 403), ("anonymous", 401),
+])
+def test_tc_asg_07_non_admin_cannot_assign(
+    request, seed, client_for, world, client_name, status, history_calls
+):
+    client = client_for() if client_name == "anonymous" else request.getfixturevalue(client_name)
+
+    response = assign(client, world["complaint"], world["plumbing"], world["plumber"])
+
+    assert response.status_code == status
+    assert status_of(seed, world["complaint"]) == "submitted"
+    assert assignments(seed, world["complaint"]) == []
+    assert history_calls == []
+
+
+# ---------------------------------------------------------------- closed and resolved
+
+@pytest.mark.parametrize("status", ["closed", "resolved"])
+def test_tc_asg_08_closed_or_resolved_complaint_cannot_be_assigned(seed, admin, world, status):
+    complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status=status)
+
+    response = assign(admin, complaint_id, world["plumbing"], world["plumber"])
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["code"] == "INVALID_STATE"
+    assert assignments(seed, complaint_id) == []
+    assert status_of(seed, complaint_id) == status
+
+
+# ---------------------------------------------------------------- invalid input
+
+def test_unknown_complaint_returns_404(admin, world):
+    response = assign(admin, str(uuid.uuid4()), world["plumbing"])
+
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_unknown_department_is_rejected(seed, admin, world):
+    response = assign(admin, world["complaint"], str(uuid.uuid4()))
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert assignments(seed, world["complaint"]) == []
+    assert status_of(seed, world["complaint"]) == "submitted"
+
+
+@pytest.mark.parametrize("who", [
+    "staff of another department", "inactive staff", "resident", "administrator", "unknown user",
+])
+def test_ineligible_staff_is_rejected(seed, admin, world, who, history_calls):
+    staff_id = {
+        "staff of another department": lambda: world["electrician"],
+        "inactive staff": lambda: seed.user("maintenance_staff", world["plumbing"], active=False),
+        "resident": lambda: seed.user("resident", world["plumbing"]),
+        "administrator": lambda: seed.user("administrator", world["plumbing"]),
+        "unknown user": lambda: str(uuid.uuid4()),
+    }[who]()
+
+    response = assign(admin, world["complaint"], world["plumbing"], staff_id)
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert assignments(seed, world["complaint"]) == []
+    assert status_of(seed, world["complaint"]) == "submitted"
+    assert history_calls == []
+
+
+@pytest.mark.parametrize("body", [
+    None,
+    {},
+    {"department_id": ""},
+    {"department_id": 5},
+    {"department_id": "not-a-uuid"},
+    {"department_id": "PLACEHOLDER", "staff_id": "not-a-uuid"},
+    {"department_id": "PLACEHOLDER", "staff_id": 7},
+    ["PLACEHOLDER"],
+])
+def test_malformed_body_is_rejected(seed, admin, world, body):
+    if isinstance(body, dict) and body.get("department_id") == "PLACEHOLDER":
+        body["department_id"] = world["plumbing"]
+
+    response = admin.post(f"/api/complaints/{world['complaint']}/assignment", json=body)
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert assignments(seed, world["complaint"]) == []
+
+
+# ---------------------------------------------------------------- transaction
+
+def test_failure_mid_assignment_rolls_everything_back(monkeypatch, seed, admin, world):
+    def broken(*args, **kwargs):
+        raise RuntimeError("history write failed")
+
+    monkeypatch.setattr(routes, "record_status_change", broken)
+    admin.application.config["PROPAGATE_EXCEPTIONS"] = False
+
+    response = assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+
+    assert response.status_code == 500
+    assert assignments(seed, world["complaint"]) == []
+    assert status_of(seed, world["complaint"]) == "submitted"
+
+
+# ---------------------------------------------------------------- end to end with #17 and #18
+
+def test_assign_complaint_created_through_the_api(seed, client_for, admin, resident, history_calls):
+    plumbing = seed.department("Plumbing")
+    plumber = seed.user("maintenance_staff", plumbing, name="Asha K")
+    category_id = admin.post("/api/categories", json={"name": "Plumbing"}).get_json()["category_id"]
+    created = resident.post("/api/complaints", json={
+        "title": "Leaking tap", "category_id": category_id,
+        "description": "Water leaks from the kitchen tap.", "location": "Block A, Unit 101",
+    })
+    assert created.status_code == 201
+    complaint_id = created.get_json()["complaint"]["complaint_id"]
+    staff_listed = admin.get(f"/api/departments/{plumbing}/staff").get_json()["items"]
+    assert [s["user_id"] for s in staff_listed] == [plumber]
+
+    response = assign(admin, complaint_id, plumbing, plumber)
+
+    assert response.status_code == 200
+    assert status_of(seed, complaint_id) == "assigned"
+    assert [r["is_current"] for r in assignments(seed, complaint_id)] == [1]
+    assert [(c[1], c[2]) for c in history_calls] == [("submitted", "assigned")]
+
+
+# ---------------------------------------------------------------- shared helpers
+
+def test_get_current_assignment_helper(seed, conn, world):
+    admin_id = seed.user("administrator")
+
+    with conn.cursor() as cur:
+        assert queries.get_current_assignment(cur, world["complaint"]) is None
+    seed.assignment(world["complaint"], admin_id, world["plumbing"], world["plumber"])
+    with conn.cursor() as cur:
+        current = queries.get_current_assignment(cur, world["complaint"])
+
+    assert current["department_id"] == world["plumbing"]
+    assert current["staff_id"] == world["plumber"]
+    assert current["assigned_at"] is not None
+
+
+# ---------------------------------------------------------------- notifications (FR-019, #42)
+
+def notified(seed, complaint_id):
+    with seed.conn.cursor() as cur:
+        cur.execute(
+            "SELECT user_id, event, is_read FROM notifications WHERE complaint_id = %s",
+            (complaint_id,),
+        )
+        return sorted((r["user_id"], r["event"], r["is_read"]) for r in cur.fetchall())
+
+
+def test_assignment_notifies_resident_and_staff(seed, admin, world):
+    assert assign(admin, world["complaint"], world["plumbing"], world["plumber"]).status_code == 200
+
+    assert notified(seed, world["complaint"]) == sorted([
+        (world["resident"], "COMPLAINT_ASSIGNED", 0),
+        (world["plumber"], "COMPLAINT_ASSIGNED", 0),
+    ])
+
+
+def test_department_only_assignment_notifies_resident(seed, admin, world):
+    assert assign(admin, world["complaint"], world["plumbing"]).status_code == 200
+
+    assert notified(seed, world["complaint"]) == [(world["resident"], "COMPLAINT_ASSIGNED", 0)]
+
+
+def test_reassignment_notifies_new_staff(seed, admin, world):
+    complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status="in_progress")
+    seed.assignment(complaint_id, admin_id_of(admin), world["plumbing"], world["plumber"])
+
+    assert assign(admin, complaint_id, world["electrical"], world["electrician"]).status_code == 200
+
+    assert notified(seed, complaint_id) == sorted([
+        (world["resident"], "COMPLAINT_ASSIGNED", 0),
+        (world["electrician"], "COMPLAINT_ASSIGNED", 0),
+    ])
+
+
+def test_assigned_staff_sees_notification_in_their_list(client_for, admin, world):
+    assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+
+    response = client_for(world["plumber"], "maintenance_staff").get("/api/notifications")
+
+    assert response.status_code == 200
+    assert "assigned" in response.get_data(as_text=True)
+
+
+@pytest.mark.parametrize("case", ["closed complaint", "ineligible staff", "non-admin"])
+def test_rejected_assignment_sends_no_notification(seed, admin, resident, world, case):
+    complaint_id = world["complaint"]
+    if case == "closed complaint":
+        complaint_id = seed.complaint(world["resident"], seed.category("Electrical"), status="closed")
+        response = assign(admin, complaint_id, world["plumbing"], world["plumber"])
+    elif case == "ineligible staff":
+        response = assign(admin, complaint_id, world["plumbing"], world["electrician"])
+    else:
+        response = assign(resident, complaint_id, world["plumbing"], world["plumber"])
+
+    assert response.status_code in (400, 403, 409)
+    assert notified(seed, complaint_id) == []
+
+
+def test_notification_failure_does_not_undo_assignment(monkeypatch, seed, admin, world):
+    def broken():
+        raise RuntimeError("notification database down")
+
+    monkeypatch.setattr("app.notifications.service.get_connection", broken)
+
+    response = assign(admin, world["complaint"], world["plumbing"], world["plumber"])
+
+    assert response.status_code == 200
+    assert [r["is_current"] for r in assignments(seed, world["complaint"])] == [1]
+    assert status_of(seed, world["complaint"]) == "assigned"
+    assert notified(seed, world["complaint"]) == []
+
+
+# ---------------------------------------------------------------- shared history writer (#26)
+
+def test_record_status_change_appends_one_row(seed, conn, world):
+    admin_id = seed.user("administrator")
+
+    with conn.cursor() as cur:
+        tracking.record_status_change(cur, world["complaint"], "submitted", "assigned", admin_id)
+
+    assert history(seed, world["complaint"]) == [{
+        "old_status": "submitted", "new_status": "assigned", "changed_by": admin_id, "remarks": None,
+    }]
+
+
+def test_record_status_change_accepts_initial_and_remark_rows(seed, conn, world):
+    """old_status None (initial submission) and old == new (a remark) are both allowed."""
+    with conn.cursor() as cur:
+        tracking.record_status_change(cur, world["complaint"], None, "submitted", world["resident"])
+        tracking.record_status_change(
+            cur, world["complaint"], "submitted", "submitted", world["resident"], "Still leaking"
+        )
+
+    rows = {(h["old_status"], h["new_status"], h["remarks"]) for h in history(seed, world["complaint"])}
+    assert rows == {(None, "submitted", None), ("submitted", "submitted", "Still leaking")}
+
+
+def test_record_status_change_does_not_commit(seed, test_db_name, world):
+    """The caller owns the transaction: a rollback leaves no history row."""
+    from db.connection import get_connection
+
+    caller = get_connection(database=test_db_name)
+    try:
+        with caller.cursor() as cur:
+            tracking.record_status_change(cur, world["complaint"], "submitted", "assigned", world["resident"])
+        caller.rollback()
+    finally:
+        caller.close()
+
+    assert history(seed, world["complaint"]) == []

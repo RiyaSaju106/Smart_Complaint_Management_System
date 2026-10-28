@@ -135,7 +135,6 @@ def update_status(complaint_id):
         else notifications.STATUS_CHANGED
     )
     notifications.notify(event, complaint_id, [complaint["resident_id"]], new_status=new_status)
-
     return jsonify({
         "status": "success",
         "message": f"Complaint status updated from {old_status} to {new_status}.",
@@ -145,6 +144,76 @@ def update_status(complaint_id):
             "updated_at": _iso(updated_at),
         },
     }), 200
+
+
+@processing_bp.get("/staff/complaints/<complaint_id>")
+@role_required(MAINTENANCE_STAFF)
+def complaint_detail(complaint_id):
+    """Detail, resolution and history of one complaint, only for its current assignee."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            detail = queries.get_detail(cur, complaint_id)
+            if detail is None:
+                return error(404, "NOT_FOUND", "Complaint ID does not exist.")
+            if queries.current_staff_id(cur, complaint_id) != session["user_id"]:
+                return error(403, "FORBIDDEN", "You are not assigned to this complaint.")
+            resolution = queries.get_resolution(cur, complaint_id)
+            history = queries.list_history(cur, complaint_id)
+    finally:
+        conn.close()
+
+    data = {k: detail[k] for k in
+            ("complaint_id", "title", "description", "location", "status", "category", "category_id")}
+    data["created_at"] = _iso(detail["created_at"])
+    data["updated_at"] = _iso(detail["updated_at"])
+    data["resolution"] = None if resolution is None else {
+        "resolved_by": resolution["resolved_by"],
+        "details": resolution["details"],
+        "resolved_at": _iso(resolution["resolved_at"]),
+    }
+    data["history"] = [
+        {"old_status": h["old_status"], "new_status": h["new_status"],
+         "changed_by": h["changed_by"], "remarks": h["remarks"], "changed_at": _iso(h["changed_at"])}
+        for h in history
+    ]
+    return jsonify({"status": "success", "data": data}), 200
+
+
+@processing_bp.post("/staff/complaints/<complaint_id>/remarks")
+@role_required(MAINTENANCE_STAFF)
+def add_remark(complaint_id):
+    """Record a remark without changing the status (a history row with old_status = new_status).
+    Only the current assignee, and only while the complaint is assigned or in progress."""
+    remarks, problem = schema.parse_remark(_body())
+    if problem:
+        return _validation_error(problem)
+    user_id = session["user_id"]
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            complaint = queries.lock_complaint(cur, complaint_id)
+            if complaint is None:
+                return error(404, "NOT_FOUND", "Complaint ID does not exist.")
+            if queries.current_staff_id(cur, complaint_id) != user_id:
+                return error(403, "FORBIDDEN", "You are not assigned to this complaint.")
+            status = complaint["status"]
+            if status not in schema.REMARKABLE_STATUSES:
+                return _invalid_transition(status, status)
+            queries.insert_history(cur, complaint_id, status, status, user_id, remarks)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return jsonify({
+        "status": "success",
+        "message": "Remark recorded.",
+        "data": {"complaint_id": complaint_id, "status": status},
+    }), 201
 
 
 @processing_bp.patch("/complaints/<complaint_id>/close")

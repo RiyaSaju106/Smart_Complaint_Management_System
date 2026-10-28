@@ -42,6 +42,8 @@ Prefix `/api`. Authentication is the server-side session (`session["user_id"]`,
 |---|---|---|---|
 | `GET /api/staff/complaints/assigned` | `maintenance_staff` | optional `?status=` | `200 {status, data: [{complaint_id, title, category, category_id, location, status, created_at}]}` |
 | `PATCH /api/staff/complaints/<id>/status` | `maintenance_staff` currently assigned to the complaint | `{status, remarks?, resolution_details?}` | `200 {status, message, data: {complaint_id, status, updated_at}}` |
+| `GET /api/staff/complaints/<id>` | `maintenance_staff` currently assigned to the complaint | – | `200 {status, data: {…complaint, resolution, history[]}}` (403 if not assigned, 404 if unknown) |
+| `POST /api/staff/complaints/<id>/remarks` | assigned `maintenance_staff`, complaint `assigned` or `in_progress` | `{remarks}` (required, ≤500) | `201 {status, message, data: {complaint_id, status}}`; writes a `status_history` row with old = new status |
 | `PATCH /api/complaints/<id>/close` | `resident` who raised it, or `administrator` | `{confirmation: true, closure_notes?}` | `200 {status, message, data: {complaint_id, status, closed_at}}` |
 
 The list shows only complaints whose **current** assignment (`is_current = TRUE`) is the logged-in
@@ -117,8 +119,7 @@ code. Only login is stood in for: a test-only route sets `session["user_id"]` an
 
 ## Known gaps
 
-- **Notifications** (`notifications` table, Notification contract events) are not created when a
-  status changes. Add them once the contract for these events is agreed.
+- **Notifications** are raised by `app.notifications.service.notify()` after each committed status change (see `Documentation/API/notification-contract.md`). The processing module only calls it; it holds no notification logic.
 - **Account status:** the module trusts the session role and does not re-check `users.is_active`.
 - **Prefix:** SAD 4.3 and the STP test cases say `/api/v1/...`; the code uses `/api` to match the
   other modules. Update the documents or change `url_prefix` in `routes.py`.

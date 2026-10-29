@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – Categories and departments{% endblock %}
+{% block body %}
+<header class="admin">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Administrator</span>
+    <a href="{{ url_for('roles.admin_home') }}">Dashboard</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide">
+  <h1 class="page-title">Categories and departments</h1>
+  <p class="lead">Residents choose from the active categories when they submit a complaint.</p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <h2>Add a category</h2>
+    <form id="category-form" class="inline-form" novalidate>
+      <div class="field"><label for="new-name">Name</label>
+        <input id="new-name" name="name" maxlength="100" required></div>
+      <div class="field grow"><label for="new-description">Description (optional)</label>
+        <input id="new-description" name="description" maxlength="255"></div>
+      <button class="primary" type="submit" id="add-category">Add category</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Categories</h2>
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="category-rows"><tr><td colspan="4">Loading categories...</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Departments</h2>
+    <table class="data-table">
+      <thead><tr><th>Department</th><th>Description</th><th>Staff</th></tr></thead>
+      <tbody id="department-rows"><tr><td colspan="3">Loading departments...</td></tr></tbody>
+    </table>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin_categories.js') }}"></script>{% endblock %}

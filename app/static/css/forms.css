@@ -81,3 +81,167 @@ a.feature:focus-visible { outline: 3px solid rgba(31, 77, 63, .45); }
   .auth-side { display: none; }
   .auth-card { margin: 24px auto 0; }
 }
+
+/* ---------- Updated full-page resident login layout ---------- */
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #dbe9de url("../img/community.svg") center center / cover no-repeat;
+}
+
+/* Keep the illustration across the entire page */
+.auth-hero {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 32px 0;
+  background: transparent;
+}
+
+/* Keep the brand at the top-left */
+.auth-hero .brand {
+  align-self: flex-start;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+/* Keep "Smart Complaint Management System" on one line */
+.auth-hero .brand-text {
+  min-width: 0;
+}
+
+.auth-hero .brand-text small {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+/* Center the login card above the feature cards */
+.auth-card {
+  margin: 48px auto 0;
+  width: 100%;
+  max-width: 400px;
+  flex-shrink: 0;
+}
+
+/* Put the three feature cards underneath the login card */
+.auth-side {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 32px 48px;
+  background: transparent;
+}
+
+.auth-side .features {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Keep the cards readable against the illustration */
+.auth-side .feature {
+  background-color: rgba(255, 255, 255, 0.94);
+}
+
+/* Responsive layout */
+@media (max-width: 900px) {
+  .auth {
+    background-position: center center;
+  }
+
+  .auth-hero {
+    padding: 20px 16px 0;
+  }
+
+  .auth-card {
+    margin-top: 36px;
+  }
+
+  .auth-side {
+    display: flex;
+    padding: 24px 16px 36px;
+  }
+
+  .auth-side .features {
+    gap: 12px;
+  }
+
+  .auth-side .feature {
+    flex-basis: 220px;
+  }
+}
+
+@media (max-width: 420px) {
+  .auth-hero .brand-text strong {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .auth-hero .brand-text small {
+    font-size: 10px;
+  }
+
+  .auth-card {
+    padding: 22px;
+  }
+}
+
+/* ---------- Background refinement ---------- */
+
+.auth {
+  position: relative;
+  isolation: isolate;
+  background-color: #eaf2e900;
+  background-image:
+    linear-gradient(
+      rgba(241, 247, 241, 0.231),
+      rgba(241, 247, 241, 0.231)
+    ),
+    url("../img/community.svg");
+  background-position: center center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Keep the login card and feature cards above the background */
+.auth-hero,
+.auth-side {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-card {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.auth-side .feature {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+/* Keep the brand name on a single line */
+.auth-hero .brand {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.auth-hero .brand-text {
+  flex-shrink: 0;
+}
+
+.auth-hero .brand-text small {
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* Improve visibility of the brand subtitle */
+.auth-hero .brand-text small {
+  color: #23483b;
+  font-weight: 600;
+}

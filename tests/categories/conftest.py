@@ -69,6 +69,7 @@ def app(monkeypatch, conn, test_db_name, tmp_path):
     monkeypatch.setattr("process.routes.get_connection", test_connection)
     monkeypatch.setattr("app.notifications.service.get_connection", test_connection)
     monkeypatch.setattr("app.notifications.routes.get_connection", test_connection)
+    monkeypatch.setattr("app.tracking.routes.get_connection", test_connection)
     flask_app = create_app()
     flask_app.config.update(TESTING=True, ATTACHMENT_UPLOAD_DIR=str(tmp_path))
     return flask_app

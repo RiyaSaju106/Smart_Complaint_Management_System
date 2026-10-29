@@ -1,0 +1,27 @@
+{% extends "auth_base.html" %}
+{% block title %}SCMS – Log in{% endblock %}
+{% block card %}
+<h1>Log In</h1>
+<div id="message" class="msg" hidden role="alert"></div>
+<form id="login-form" novalidate>
+  <div class="field">
+    <label for="email">Email</label>
+    <div class="input-wrap">
+      <span class="input-icon">{{ icon("mail", 18) }}</span>
+      <input id="email" name="email" type="email" placeholder="Enter your email" autocomplete="username" required>
+    </div>
+  </div>
+  <div class="field">
+    <label for="password">Password</label>
+    <div class="input-wrap">
+      <span class="input-icon">{{ icon("lock", 18) }}</span>
+      <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+      <button type="button" class="input-toggle" data-toggle-password aria-label="Show password">{{ icon("eye", 18) }}</button>
+    </div>
+  </div>
+  <button class="primary block" type="submit" id="submit">Log In</button>
+</form>
+<div class="divider"><span>OR</span></div>
+<p class="link-row center">Don't have an account? <a href="{{ url_for('ui.register_page') }}">Register</a></p>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/login.js') }}"></script>{% endblock %}

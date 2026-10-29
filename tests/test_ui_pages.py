@@ -1,0 +1,76 @@
+"""Page tests for issue #54. These render HTML only and need no database."""
+import pytest
+
+from app import create_app
+
+USER_ID = "3f2b8c1e-5d4a-4c6b-9e7f-1a2b3c4d5e6f"
+
+
+@pytest.fixture
+def client(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-pytest")
+    app = create_app()
+    app.config.update(TESTING=True)
+    return app.test_client()
+
+
+def log_in_as(client, role):
+    with client.session_transaction() as session:
+        session["user_id"] = USER_ID
+        session["role"] = role
+        session["name"] = "Asha"
+
+
+def test_root_redirects_logged_out_user_to_login(client):
+    response = client.get("/")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+@pytest.mark.parametrize("role", ["resident", "maintenance_staff", "administrator"])
+def test_root_redirects_logged_in_user_to_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_login_and_register_pages_render_for_logged_out_user(client):
+    login = client.get("/login")
+    register = client.get("/register")
+    assert login.status_code == 200 and b'id="login-form"' in login.data
+    assert register.status_code == 200 and b'id="register-form"' in register.data
+    assert b"contact_number" in register.data and b"unit_address" in register.data
+
+
+def test_login_page_redirects_when_already_signed_in(client):
+    log_in_as(client, "resident")
+    assert client.get("/login").status_code == 302
+
+
+def test_complaint_form_requires_login(client):
+    response = client.get("/complaints/new")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_complaint_form_renders_for_resident(client):
+    log_in_as(client, "resident")
+    response = client.get("/complaints/new")
+    assert response.status_code == 200
+    for field in (b'name="title"', b'name="category_id"', b'name="description"', b'name="location"', b'name="file"'):
+        assert field in response.data
+
+
+@pytest.mark.parametrize("role", ["maintenance_staff", "administrator"])
+def test_complaint_form_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/complaints/new")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_static_assets_are_served(client):
+    for path in ("/static/js/api.js", "/static/js/login.js", "/static/js/register.js",
+                 "/static/js/complaint_new.js", "/static/css/forms.css"):
+        assert client.get(path).status_code == 200, path

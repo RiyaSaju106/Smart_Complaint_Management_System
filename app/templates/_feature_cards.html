@@ -1,0 +1,44 @@
+{# The three resident entry points from the SRS user-interface list.
+   interactive=False -> plain information cards (login page).
+   interactive=True  -> live cards on the resident home page; pages that do not exist yet are disabled. #}
+{% from "_icons.html" import icon %}
+{% macro feature_cards(interactive=False) %}
+<div class="features">
+  {% if interactive %}
+  <a class="feature tone-green" href="{{ url_for('ui.new_complaint_page') }}">
+    <span class="feature-icon">{{ icon("doc-plus", 24) }}</span>
+    <h3>Register a Complaint</h3>
+    <p>Report an issue in your community.</p>
+    <span class="feature-arrow">{{ icon("arrow", 18) }}</span>
+  </a>
+  <div class="feature tone-blue is-disabled" aria-disabled="true">
+    <span class="feature-icon">{{ icon("search", 24) }}</span>
+    <h3>Track Complaint</h3>
+    <p>Check the status and updates of your complaints.</p>
+    <span class="soon">Coming soon</span>
+  </div>
+  <div class="feature tone-orange is-disabled" aria-disabled="true">
+    <span class="feature-icon">{{ icon("list", 24) }}</span>
+    <h3>My Complaints</h3>
+    <p>View all your submitted complaints and their history.</p>
+    <span class="soon">Coming soon</span>
+  </div>
+  {% else %}
+  <div class="feature tone-green">
+    <span class="feature-icon">{{ icon("doc-plus", 24) }}</span>
+    <h3>Register a Complaint</h3>
+    <p>Report an issue in your community.</p>
+  </div>
+  <div class="feature tone-blue">
+    <span class="feature-icon">{{ icon("search", 24) }}</span>
+    <h3>Track Complaint</h3>
+    <p>Check the status and updates of your complaints.</p>
+  </div>
+  <div class="feature tone-orange">
+    <span class="feature-icon">{{ icon("list", 24) }}</span>
+    <h3>My Complaints</h3>
+    <p>View all your submitted complaints and their history.</p>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

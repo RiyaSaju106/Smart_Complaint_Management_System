@@ -14,8 +14,12 @@
     main { padding: 24px; max-width: 800px; }
     .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin-bottom: 12px; }
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
   {% block body %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

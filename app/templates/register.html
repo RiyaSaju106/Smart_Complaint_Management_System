@@ -1,0 +1,29 @@
+{% extends "auth_base.html" %}
+{% block title %}SCMS – Register{% endblock %}
+{% block card %}
+<h1>Register</h1>
+<p class="lead">Create a resident account to submit and follow complaints.</p>
+<div id="message" class="msg" hidden role="alert"></div>
+<form id="register-form" novalidate>
+  <div class="field"><label for="name">Full name</label>
+    <div class="input-wrap"><span class="input-icon">{{ icon("user", 18) }}</span>
+      <input id="name" name="name" maxlength="100" placeholder="Your full name" autocomplete="name" required></div></div>
+  <div class="field"><label for="email">Email</label>
+    <div class="input-wrap"><span class="input-icon">{{ icon("mail", 18) }}</span>
+      <input id="email" name="email" type="email" maxlength="100" placeholder="Enter your email" autocomplete="username" required></div></div>
+  <div class="field"><label for="password">Password</label>
+    <div class="input-wrap"><span class="input-icon">{{ icon("lock", 18) }}</span>
+      <input id="password" name="password" type="password" minlength="8" placeholder="At least 8 characters" autocomplete="new-password" required>
+      <button type="button" class="input-toggle" data-toggle-password aria-label="Show password">{{ icon("eye", 18) }}</button></div></div>
+  <div class="field"><label for="contact_number">Contact number</label>
+    <div class="input-wrap"><span class="input-icon">{{ icon("phone", 18) }}</span>
+      <input id="contact_number" name="contact_number" maxlength="15" placeholder="Phone number" autocomplete="tel" required></div></div>
+  <div class="field"><label for="unit_address">Unit / flat address</label>
+    <div class="input-wrap"><span class="input-icon">{{ icon("home", 18) }}</span>
+      <input id="unit_address" name="unit_address" maxlength="150" placeholder="e.g. Block B, Flat 304" required></div></div>
+  <button class="primary block" type="submit" id="submit">Create account</button>
+</form>
+<div class="divider"><span>OR</span></div>
+<p class="link-row center">Already registered? <a href="{{ url_for('ui.login_page') }}">Log in</a></p>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/register.js') }}"></script>{% endblock %}

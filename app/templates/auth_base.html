@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_feature_cards.html" import feature_cards %}
+{% block body %}
+<div class="auth">
+  <section class="auth-hero">
+    <div class="brand">
+      <span class="brand-mark">{{ icon("logo", 34) }}</span>
+      <span class="brand-text"><strong>SCMS</strong><small>Smart Complaint<br>Management System</small></span>
+    </div>
+    <div class="auth-card">
+      {% block card %}{% endblock %}
+    </div>
+  </section>
+  <section class="auth-side" aria-label="What you can do with SCMS">
+    {{ feature_cards(False) }}
+  </section>
+</div>
+{% endblock %}

@@ -7,7 +7,7 @@ a resolution, its history row and the status change succeed or fail together.
 Timestamps are not set here; MySQL fills them (DEFAULT / ON UPDATE CURRENT_TIMESTAMP).
 """
 import uuid
-
+from app.tracking.service import record_status_change
 
 def list_assigned(cur, staff_id, status=None):
     """Complaints whose *current* assignment is this staff member, newest first."""
@@ -63,12 +63,7 @@ def insert_resolution(cur, complaint_id, resolved_by, details):
 
 def insert_history(cur, complaint_id, old_status, new_status, changed_by, remarks):
     """Append one status_history row. That table is append-only: never UPDATE or DELETE it."""
-    cur.execute(
-        "INSERT INTO status_history "
-        "(history_id, complaint_id, old_status, new_status, changed_by, remarks) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (str(uuid.uuid4()), complaint_id, old_status, new_status, changed_by, remarks),
-    )
+    record_status_change(cur, complaint_id, old_status, new_status, changed_by, remarks)
 
 
 def set_status(cur, complaint_id, new_status):

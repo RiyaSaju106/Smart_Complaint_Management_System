@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f8f3"/><stop offset="1" stop-color="#dbe9de"/>
+    </linearGradient>
+    <pattern id="win" width="34" height="42" patternUnits="userSpaceOnUse">
+      <rect x="7" y="8" width="20" height="26" rx="2" fill="#bcd3dc"/>
+      <rect x="7" y="8" width="20" height="3" fill="#a5c0cb"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="1000" fill="url(#sky)"/>
+  <rect x="40" y="470" width="190" height="330" fill="#e9eee9"/>
+  <rect x="40" y="470" width="190" height="330" fill="url(#win)" opacity=".7"/>
+  <rect x="250" y="400" width="230" height="400" fill="#f1f1ea"/>
+  <rect x="250" y="400" width="230" height="400" fill="url(#win)" opacity=".8"/>
+  <rect x="500" y="500" width="260" height="300" fill="#e9eee9"/>
+  <rect x="500" y="500" width="260" height="300" fill="url(#win)" opacity=".7"/>
+  <rect x="250" y="392" width="230" height="10" fill="#cfd8cf"/>
+  <rect y="790" width="800" height="210" fill="#b9d3b4"/>
+  <path d="M0 880 Q260 820 520 860 T800 850 V1000 H0Z" fill="#a3c59e"/>
+  <path d="M300 1000 Q420 900 560 800 L610 800 Q500 900 470 1000Z" fill="#e8e6dc"/>
+  <ellipse cx="150" cy="835" rx="150" ry="34" fill="#5f9561"/>
+  <ellipse cx="690" cy="850" rx="140" ry="30" fill="#5f9561"/>
+  <g fill="#4f8a55">
+    <rect x="62" y="640" width="14" height="190" fill="#6b5b45"/>
+    <circle cx="70" cy="610" r="64"/><circle cx="30" cy="670" r="46"/><circle cx="110" cy="680" r="44"/>
+    <rect x="722" y="660" width="12" height="180" fill="#6b5b45"/>
+    <circle cx="728" cy="640" r="56"/><circle cx="770" cy="700" r="40"/><circle cx="690" cy="705" r="40"/>
+  </g>
+  <rect x="598" y="690" width="6" height="150" fill="#2b3a35"/>
+  <circle cx="601" cy="684" r="12" fill="#2b3a35"/>
+</svg>

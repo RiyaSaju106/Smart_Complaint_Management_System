@@ -1,13 +1,18 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_feature_cards.html" import feature_cards %}
 {% block title %}SCMS – Resident{% endblock %}
 {% block body %}
 <header class="resident">
-  <strong>Smart Complaint Management System</strong>
-  <span class="badge">Resident</span>
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Resident</span>
+    <a href="#" data-logout>Sign out</a>
+  </span>
 </header>
-<main>
-  <h1>Welcome, {{ name or "Resident" }}</h1>
-  <div class="card">Submit a complaint <em>(coming in Sprint 2)</em></div>
-  <div class="card">Track my complaints <em>(coming in Sprint 2)</em></div>
+<main class="wide">
+  <h1 class="page-title">Welcome, {{ name or "Resident" }}</h1>
+  <p class="lead">What would you like to do today?</p>
+  {{ feature_cards(True) }}
 </main>
 {% endblock %}

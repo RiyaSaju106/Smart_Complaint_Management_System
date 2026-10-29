@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – New complaint{% endblock %}
+{% block body %}
+<header class="resident">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Resident</span>
+    <a href="{{ url_for('roles.resident_home') }}">Home</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide">
+  <div class="form-card wide">
+    <div id="form-view">
+      <h1>Register a Complaint</h1>
+      <p class="lead">Tell us what is wrong and where. We will assign it to the right team.</p>
+      <div id="message" class="msg" hidden role="alert"></div>
+      <form id="complaint-form" novalidate>
+        <div class="field"><label for="title">Title</label>
+          <input id="title" name="title" maxlength="150" placeholder="Short summary of the issue" required></div>
+        <div class="field"><label for="category">Category</label>
+          <select id="category" name="category_id" required><option value="">Loading categories...</option></select></div>
+        <div class="field"><label for="description">Description</label>
+          <textarea id="description" name="description" maxlength="1000" placeholder="Describe the problem in detail" required></textarea>
+          <div class="hint"><span id="desc-count">0</span> / 1000</div></div>
+        <div class="field"><label for="location">Location</label>
+          <input id="location" name="location" maxlength="200" placeholder="e.g. Block B, 3rd floor corridor" required></div>
+        <div class="field"><label for="attachment">Attachment (optional)</label>
+          <input id="attachment" name="file" type="file" accept=".pdf,.png,.jpg,.jpeg">
+          <div class="hint">PDF, PNG or JPG, up to 5 MB.</div></div>
+        <button class="primary" type="submit" id="submit">Submit complaint</button>
+      </form>
+    </div>
+    <div id="success-view" hidden>
+      <div class="success-mark">{{ icon("check", 30) }}</div>
+      <h1>Complaint submitted</h1>
+      <div id="success-message" class="msg success"></div>
+      <p>Your Complaint ID: <code class="cid" id="complaint-id"></code></p>
+      <p>Current status: <strong id="complaint-status"></strong></p>
+      <p class="link-row"><a href="{{ url_for('ui.new_complaint_page') }}">Submit another</a> ·
+        <a href="{{ url_for('roles.resident_home') }}">Back to home</a></p>
+    </div>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/complaint_new.js') }}"></script>{% endblock %}

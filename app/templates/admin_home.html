@@ -9,7 +9,7 @@
   <h1>Administrator Dashboard</h1>
   <p>Signed in as {{ name or "Administrator" }}.</p>
   <div class="card">Manage users and staff <em>(coming in Sprint 3)</em></div>
-  <div class="card">Assign complaints <em>(coming in Sprint 2)</em></div>
+  <a class="card" href="{{ url_for('ui.admin_assignments_page') }}">Assign complaints</a>
   <div class="card">Reports and complaint counts <em>(coming in Sprint 3)</em></div>
 </main>
 {% endblock %}

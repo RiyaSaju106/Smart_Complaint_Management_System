@@ -214,16 +214,18 @@ History is read-only. No `PUT`, `PATCH` or `DELETE` route exists, so Flask retur
 
 ### 4.3 Search and filter (FR-017, FR-018)
 
-`GET /api/complaints`
+`GET /api/complaints`: any authenticated role. **Implemented (#27)** in `app/tracking/search.py`.
 
 | Query parameter | Meaning | Validation (400 `INVALID_FILTER` if broken) |
 |---|---|---|
-| `q` | Exact Complaint ID, or a keyword matched against title and description (case-insensitive) | Max 100 characters |
+| `q` | Exact Complaint ID, or a keyword matched anywhere in the title or description (case-insensitive). `%`, `_` and `\` are matched literally. | Max 100 characters after trimming |
 | `category_id` | Category UUID | Must be a UUID |
-| `status` | One status value | Must be one of the five lowercase statuses |
-| `department_id` | Department of the current assignment | Must be a UUID |
-| `from`, `to` | `created_at` date range, inclusive (`YYYY-MM-DD`) | Valid dates; `from` ≤ `to` |
-| `page` | Page number, 20 items per page | Integer ≥ 1 (default 1) |
+| `status` | One status value | Must be one of the five lowercase statuses (`Assigned` is rejected) |
+| `department_id` | Department of the **current** assignment (earlier assignments are ignored) | Must be a UUID |
+| `from`, `to` | `created_at` date range, inclusive (`YYYY-MM-DD`); either may be given alone | Valid dates; `from` ≤ `to` |
+| `page` | Page number, 20 items per page | Whole number ≥ 1 (default 1) |
+
+Empty values (`?status=`) count as not given; unknown parameters are ignored. Filters combine with AND.
 
 All values are bound as SQL parameters, never concatenated into SQL (SEC-003, TC-TRK-06).
 
@@ -231,14 +233,30 @@ All values are bound as SQL parameters, never concatenated into SQL (SEC-003, TC
 200
 {
   "items": [
-    {"complaint_id": "…", "title": "Leaking tap", "category": {"category_id": "…", "name": "Water Supply"}, "status": "assigned", "created_at": "2026-10-14T09:00:00"}
+    {
+      "complaint_id": "…",
+      "title": "Leaking tap",
+      "category": {"category_id": "…", "name": "Water Supply"},
+      "status": "assigned",
+      "location": "Block A, Unit 101",
+      "created_at": "2026-10-14T09:00:00",
+      "current_assignment": {
+        "department": {"department_id": "…", "name": "Plumbing"},
+        "staff": {"user_id": "…", "name": "Asha K"}
+      }
+    }
   ],
   "page": 1,
+  "page_size": 20,
   "total": 1
 }
 ```
 
-Results are newest first and always role-scoped (4, TC-TRK-09).
+`current_assignment` is `null` for an unassigned complaint, and `staff` is `null` for a department-only assignment. `total` counts every match the caller may see, across all pages; a page past the end returns an empty `items` list.
+
+Results are newest first and always role-scoped (4, TC-TRK-09). The scope rule lives in `app/tracking/scope.py` (`visible_complaints(role, user_id)`), the same rule as the status and history endpoints.
+
+Errors: `400 INVALID_FILTER`, `401 UNAUTHENTICATED`, `403 FORBIDDEN` (unknown role), `500 DATABASE_ERROR` (details logged, never returned).
 
 `POST /api/complaints` (submit) belongs to the Complaint module (Riya). Both routes share the path with different methods, which Flask supports across blueprints.
 

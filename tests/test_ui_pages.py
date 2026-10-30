@@ -74,3 +74,37 @@ def test_static_assets_are_served(client):
     for path in ("/static/js/api.js", "/static/js/login.js", "/static/js/register.js",
                  "/static/js/complaint_new.js", "/static/css/forms.css"):
         assert client.get(path).status_code == 200, path
+
+# ---------------------------------------------------------------- assignment page (issue #56)
+
+def test_assignment_page_requires_login(client):
+    response = client.get("/admin/assignments")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_assignment_page_renders_for_administrator(client):
+    log_in_as(client, "administrator")
+    response = client.get("/admin/assignments")
+    assert response.status_code == 200
+    for marker in (b'id="filter-form"', b'id="complaint-rows"', b'id="filter-status"',
+                   b"js/admin_assignments.js", b"css/admin_assignments.css"):
+        assert marker in response.data
+
+
+@pytest.mark.parametrize("role", ["resident", "maintenance_staff", "superuser"])
+def test_assignment_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/admin/assignments")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_admin_dashboard_links_to_assignment_page(client):
+    log_in_as(client, "administrator")
+    assert b'href="/admin/assignments"' in client.get("/admin").data
+
+
+def test_assignment_page_assets_are_served(client):
+    for path in ("/static/js/admin_assignments.js", "/static/css/admin_assignments.css"):
+        assert client.get(path).status_code == 200, path

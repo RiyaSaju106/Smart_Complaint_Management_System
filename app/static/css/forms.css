@@ -245,3 +245,22 @@ a.feature:focus-visible { outline: 3px solid rgba(31, 77, 63, .45); }
   color: #23483b;
   font-weight: 600;
 }
+
+/* ---------- Administrator management pages (issue #55) ---------- */
+.panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 20px; overflow-x: auto; }
+.panel h2 { margin: 0 0 14px; font-size: 18px; }
+.inline-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.inline-form .field { margin-bottom: 0; flex: 1 1 180px; }
+.inline-form .field.grow { flex: 2 1 260px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th, .data-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.data-table th { color: var(--muted); font-weight: 600; }
+.data-table td input { width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid #c9d3ce; border-radius: 6px; font: inherit; }
+.data-table tr.inactive td { color: var(--muted); }
+.data-table td.actions { white-space: nowrap; }
+button.small { font: inherit; font-size: 13px; padding: 5px 10px; margin: 2px 4px 2px 0; border-radius: 6px; border: 1px solid #c9d3ce; background: #fff; color: var(--ink); cursor: pointer; }
+button.small:hover { border-color: var(--green); }
+button.small.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+button.small.danger { color: #8a1f17; border-color: #f5c2bd; }
+button.small.danger:hover { background: #fdecea; }
+@media (max-width: 640px) { .data-table td.actions { white-space: normal; } }

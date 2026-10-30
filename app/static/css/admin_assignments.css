@@ -1,0 +1,13 @@
+/* Complaint assignment page for administrators (issue #56). Builds on the shared admin styles in forms.css. */
+.data-table select { padding: 7px 8px; border: 1px solid #c9d3ce; border-radius: 6px; font: inherit; background: #fff; max-width: 100%; }
+.data-table .sub { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.data-table .muted { color: var(--muted); }
+.data-table tr.detail td { background: #f8faf8; }
+.assign-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.assign-form label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.history { margin: 0; padding-left: 18px; font-size: 13px; }
+.history li { margin: 2px 0; }
+.status-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; background: #eef3ef; color: var(--green-dark); white-space: nowrap; }
+.status-pill.submitted { background: #fdf3e8; color: #8a4a12; }
+.status-pill.resolved, .status-pill.closed { background: #eceff1; color: #4a5560; }
+.pager { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 14px; color: var(--muted); }

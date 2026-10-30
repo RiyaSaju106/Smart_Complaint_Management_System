@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – Assign complaints{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_assignments.css') }}">{% endblock %}
+{% block body %}
+<header class="admin">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Administrator</span>
+    <a href="{{ url_for('roles.admin_home') }}">Dashboard</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide">
+  <h1 class="page-title">Assign complaints</h1>
+  <p class="lead">Send each complaint to a department and, optionally, a staff member in it. Reassigning keeps the complaint's status.</p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <form id="filter-form" class="inline-form" novalidate>
+      <div class="field"><label for="filter-status">Show</label>
+        <select id="filter-status" name="status">
+          <option value="submitted" selected>Waiting for assignment</option>
+          <option value="assigned">Assigned</option>
+          <option value="in_progress">In progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+          <option value="">All complaints</option>
+        </select></div>
+      <div class="field grow"><label for="filter-q">Search (Complaint ID, title or description)</label>
+        <input id="filter-q" name="q" maxlength="100"></div>
+      <button class="primary" type="submit">Search</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2 id="list-heading">Complaints</h2>
+    <table class="data-table">
+      <thead><tr><th>Complaint</th><th>Category</th><th>Status</th><th>Submitted</th><th>Assigned to</th><th>Actions</th></tr></thead>
+      <tbody id="complaint-rows"><tr><td colspan="6">Loading complaints...</td></tr></tbody>
+    </table>
+    <div class="pager">
+      <button type="button" class="small" id="prev-page" disabled>Previous</button>
+      <span id="page-info"></span>
+      <button type="button" class="small" id="next-page" disabled>Next</button>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin_assignments.js') }}"></script>{% endblock %}

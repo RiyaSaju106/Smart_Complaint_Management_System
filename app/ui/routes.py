@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 """Browser pages for SCMS: login, register and the complaint form (issue #54), and complaint
 assignment for administrators (issue #56).
+=======
+"""Browser pages for SCMS: login, register and the complaint form (issue #54), and category
+and department management for administrators (issue #55).
+>>>>>>> origin/main
 
 These routes only render HTML. All data goes through the existing /api/... endpoints, which
 keep doing the real validation and role checks. A page here redirects to /login when nobody is
@@ -43,10 +48,19 @@ def new_complaint_page():
     return render_template("complaint_new.html", name=session.get("name"))
 
 
+<<<<<<< HEAD
 @ui_bp.route("/admin/assignments")
 def admin_assignments_page():
+=======
+@ui_bp.route("/admin/categories")
+def admin_categories_page():
+>>>>>>> origin/main
     if "user_id" not in session:
         return redirect(url_for("ui.login_page"))
     if session.get("role") != ADMINISTRATOR:
         return redirect(url_for("roles.home"))
+<<<<<<< HEAD
     return render_template("admin_assignments.html", name=session.get("name"))
+=======
+    return render_template("admin_categories.html", name=session.get("name"))
+>>>>>>> origin/main

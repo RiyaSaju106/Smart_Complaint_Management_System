@@ -8,6 +8,7 @@
 <main>
   <h1>Administrator Dashboard</h1>
   <p>Signed in as {{ name or "Administrator" }}.</p>
+  <a class="card" href="{{ url_for('ui.admin_categories_page') }}">Manage categories and departments</a>
   <div class="card">Manage users and staff <em>(coming in Sprint 3)</em></div>
   <a class="card" href="{{ url_for('ui.admin_assignments_page') }}">Assign complaints</a>
   <div class="card">Reports and complaint counts <em>(coming in Sprint 3)</em></div>

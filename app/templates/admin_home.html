@@ -3,7 +3,11 @@
 {% block body %}
 <header class="admin">
   <strong>Smart Complaint Management System</strong>
-  <span class="badge">Administrator</span>
+  <span class="nav">
+    <span class="badge">Administrator</span>
+    <a href="{{ url_for('ui.notifications_page') }}">Notifications</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
 </header>
 <main>
   <h1>Administrator Dashboard</h1>

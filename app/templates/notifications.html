@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – Notifications{% endblock %}
+{% block body %}
+<header class="{{ header_class }}">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">{{ role_label }}</span>
+    <a href="{{ url_for('roles.home') }}">Home</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide">
+  <h1 class="page-title">Notifications</h1>
+  <p class="lead">Updates about the complaints you are involved in, newest first.</p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <div class="panel-bar">
+      <span id="unread-summary"></span>
+      <button type="button" class="small" id="mark-all-read" hidden>Mark all as read</button>
+    </div>
+    <ul id="notification-list" class="notification-list">
+      <li class="empty">Loading notifications...</li>
+    </ul>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>{% endblock %}

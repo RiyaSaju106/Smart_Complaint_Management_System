@@ -139,3 +139,43 @@ def test_admin_dashboard_links_to_assignment_page(client):
 def test_assignment_page_assets_are_served(client):
     for path in ("/static/js/admin_assignments.js", "/static/css/admin_assignments.css"):
         assert client.get(path).status_code == 200, path
+
+
+# ---------------------------------------------------------------- notification list (issue #58)
+
+def test_notifications_page_requires_login(client):
+    response = client.get("/notifications")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+@pytest.mark.parametrize("role,header", [
+    ("resident", b'<header class="resident">'),
+    ("maintenance_staff", b'<header class="staff">'),
+    ("administrator", b'<header class="admin">'),
+])
+def test_notifications_page_renders_for_every_role(client, role, header):
+    log_in_as(client, role)
+    response = client.get("/notifications")
+    assert response.status_code == 200
+    for marker in (header, b'id="notification-list"', b'id="mark-all-read"', b"js/notifications.js"):
+        assert marker in response.data
+
+
+def test_notifications_page_sends_unknown_role_home(client):
+    log_in_as(client, "superuser")
+    response = client.get("/notifications")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+@pytest.mark.parametrize("role,home", [
+    ("resident", "/resident"), ("maintenance_staff", "/staff"), ("administrator", "/admin"),
+])
+def test_home_pages_link_to_notifications(client, role, home):
+    log_in_as(client, role)
+    assert b'href="/notifications"' in client.get(home).data
+
+
+def test_notifications_script_is_served(client):
+    assert client.get("/static/js/notifications.js").status_code == 200

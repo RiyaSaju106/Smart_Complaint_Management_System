@@ -1,7 +1,8 @@
-"""Browser pages for SCMS: login, register and the complaint form (issue #54), and category
-and department management for administrators (issue #55).
+"""Browser pages for SCMS: login, register and the complaint form (issue #54), category and
+department management for administrators (issue #55), and complaint assignment for
+administrators (issue #56).
 
-These routes only render HTML. All data goes through the existing /api/... endpoints, which
+These routes only render HTML. All data goes through the existing /api/...endpoints, which
 keep doing the real validation and role checks. A page here redirects to /login when nobody is
 signed in (the JSON 401 used by the API is not useful in a browser).
 """
@@ -50,3 +51,12 @@ def admin_categories_page():
     if session.get("role") != ADMINISTRATOR:
         return redirect(url_for("roles.home"))
     return render_template("admin_categories.html", name=session.get("name"))
+
+
+@ui_bp.route("/admin/assignments")
+def admin_assignments_page():
+    if "user_id" not in session:
+        return redirect(url_for("ui.login_page"))
+    if session.get("role") != ADMINISTRATOR:
+        return redirect(url_for("roles.home"))
+    return render_template("admin_assignments.html", name=session.get("name"))

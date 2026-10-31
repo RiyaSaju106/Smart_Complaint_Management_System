@@ -63,6 +63,7 @@ def create_app():
     from app.categories import categories_bp
     from process import processing_bp
     from app.notifications.routes import notifications_bp
+    from app.feedback import feedback_bp
     from app.tracking import tracking_bp
     from app.tracking import routes as tracking_routes
     from app.tracking import search as tracking_search
@@ -75,6 +76,7 @@ def create_app():
     app.register_blueprint(categories_bp)
     app.register_blueprint(processing_bp)
     app.register_blueprint(notifications_bp)
+    app.register_blueprint(feedback_bp)
     app.register_blueprint(tracking_bp)
     app.register_blueprint(ui_bp)
 

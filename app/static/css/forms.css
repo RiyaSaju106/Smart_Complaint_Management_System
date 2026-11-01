@@ -81,3 +81,199 @@ a.feature:focus-visible { outline: 3px solid rgba(31, 77, 63, .45); }
   .auth-side { display: none; }
   .auth-card { margin: 24px auto 0; }
 }
+
+/* ---------- Updated full-page resident login layout ---------- */
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #dbe9de url("../img/community.svg") center center / cover no-repeat;
+}
+
+/* Keep the illustration across the entire page */
+.auth-hero {
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 32px 0;
+  background: transparent;
+}
+
+/* Keep the brand at the top-left */
+.auth-hero .brand {
+  align-self: flex-start;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+/* Keep "Smart Complaint Management System" on one line */
+.auth-hero .brand-text {
+  min-width: 0;
+}
+
+.auth-hero .brand-text small {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+/* Center the login card above the feature cards */
+.auth-card {
+  margin: 48px auto 0;
+  width: 100%;
+  max-width: 400px;
+  flex-shrink: 0;
+}
+
+/* Put the three feature cards underneath the login card */
+.auth-side {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 32px 48px;
+  background: transparent;
+}
+
+.auth-side .features {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Keep the cards readable against the illustration */
+.auth-side .feature {
+  background-color: rgba(255, 255, 255, 0.94);
+}
+
+/* Responsive layout */
+@media (max-width: 900px) {
+  .auth {
+    background-position: center center;
+  }
+
+  .auth-hero {
+    padding: 20px 16px 0;
+  }
+
+  .auth-card {
+    margin-top: 36px;
+  }
+
+  .auth-side {
+    display: flex;
+    padding: 24px 16px 36px;
+  }
+
+  .auth-side .features {
+    gap: 12px;
+  }
+
+  .auth-side .feature {
+    flex-basis: 220px;
+  }
+}
+
+@media (max-width: 420px) {
+  .auth-hero .brand-text strong {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .auth-hero .brand-text small {
+    font-size: 10px;
+  }
+
+  .auth-card {
+    padding: 22px;
+  }
+}
+
+/* ---------- Background refinement ---------- */
+
+.auth {
+  position: relative;
+  isolation: isolate;
+  background-color: #eaf2e900;
+  background-image:
+    linear-gradient(
+      rgba(241, 247, 241, 0.231),
+      rgba(241, 247, 241, 0.231)
+    ),
+    url("../img/community.svg");
+  background-position: center center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Keep the login card and feature cards above the background */
+.auth-hero,
+.auth-side {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-card {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.auth-side .feature {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+/* Keep the brand name on a single line */
+.auth-hero .brand {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.auth-hero .brand-text {
+  flex-shrink: 0;
+}
+
+.auth-hero .brand-text small {
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* Improve visibility of the brand subtitle */
+.auth-hero .brand-text small {
+  color: #23483b;
+  font-weight: 600;
+}
+
+/* ---------- Administrator management pages (issue #55) ---------- */
+.panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 20px; overflow-x: auto; }
+.panel h2 { margin: 0 0 14px; font-size: 18px; }
+.inline-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.inline-form .field { margin-bottom: 0; flex: 1 1 180px; }
+.inline-form .field.grow { flex: 2 1 260px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th, .data-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.data-table th { color: var(--muted); font-weight: 600; }
+.data-table td input { width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid #c9d3ce; border-radius: 6px; font: inherit; }
+.data-table tr.inactive td { color: var(--muted); }
+.data-table td.actions { white-space: nowrap; }
+button.small { font: inherit; font-size: 13px; padding: 5px 10px; margin: 2px 4px 2px 0; border-radius: 6px; border: 1px solid #c9d3ce; background: #fff; color: var(--ink); cursor: pointer; }
+button.small:hover { border-color: var(--green); }
+button.small.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+button.small.danger { color: #8a1f17; border-color: #f5c2bd; }
+button.small.danger:hover { background: #fdecea; }
+@media (max-width: 640px) { .data-table td.actions { white-space: normal; } }
+
+/* ---------- Notification list (issue #58) ---------- */
+.panel-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; color: var(--muted); font-size: 14px; }
+.notification-list { list-style: none; margin: 0; padding: 0; }
+.notification-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 10px; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; }
+.notification-list li:last-child { border-bottom: 0; }
+.notification-list li.unread { border-left-color: var(--green); background: #f3f8f5; }
+.notification-list li.empty { color: var(--muted); }
+.notification-list .body { min-width: 0; }
+.notification-list button.small { flex-shrink: 0; white-space: nowrap; }
+.notification-list .text { margin: 0; overflow-wrap: anywhere; }
+.notification-list li.unread .text { font-weight: 600; }
+.notification-list .meta { margin: 4px 0 0; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; overflow-wrap: anywhere; }

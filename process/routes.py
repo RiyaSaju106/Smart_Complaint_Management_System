@@ -24,11 +24,21 @@ from app.tracking import service as tracking
 from db.connection import get_connection
 
 from . import queries, schema  # relative: works whatever this folder is named
+from .pages import pages_bp
 
 # /api like the other modules (auth uses /api/auth). SAD 4.3 and the STP still say /api/v1.
 processing_bp = Blueprint("processing", __name__, url_prefix="/api")
 
 MAINTENANCE_STAFF = "maintenance_staff"
+
+
+@processing_bp.record_once
+def _register_staff_pages(state):
+    """The staff browser pages (pages.py) are not under /api, so they are a second blueprint. It is
+    registered here, when processing_bp is, so `app.register_blueprint(processing_bp)` stays the only
+    call anywhere and works for any app, including the minimal one used by the tests."""
+    if pages_bp.name not in state.app.blueprints:
+        state.app.register_blueprint(pages_bp)
 
 
 @processing_bp.errorhandler(pymysql.MySQLError)

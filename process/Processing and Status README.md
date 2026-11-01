@@ -15,6 +15,8 @@ Flask blueprint on PyMySQL. It uses the existing `db/schema.sql` tables (`compla
 | `routes.py` | HTTP layer: login and role checks, order of checks, one transaction per request, responses, JSON error handler for database failures |
 | `schema.py` | Request validation and lifecycle rules (`STATUSES`, `ALLOWED_TRANSITIONS`, size limits). No Flask or database code |
 | `queries.py` | PyMySQL SQL, one small function per query. Takes a cursor, never commits |
+| `pages.py` | Browser pages for staff (HTML shells only; data and writes go through the API) |
+| `templates/`, `static/` | Page templates, JS and CSS, served by the `processing_pages` blueprint |
 | `__init__.py` | Exports `processing_bp` |
 
 Tests are in `tests/processing/` (`conftest.py` fixtures, `test_processing.py`).
@@ -32,6 +34,23 @@ app.register_blueprint(processing_bp)
 The module imports `app.access` (`ADMINISTRATOR`, `RESIDENT`, `error`, `role_required`) and
 `db.connection.get_connection`. **Run everything from the repository root**, the folder that holds
 `app/`, `db/` and `process/`. Do not run `routes.py` directly: `app` is then not importable.
+
+## Staff pages (browser)
+
+Registered automatically by `process/routes.py` when `processing_bp` is registered; no change to `create_app()` is needed.
+
+| Page | Who | What it does |
+|---|---|---|
+| `GET /staff/complaints` | `maintenance_staff` | Dashboard of complaints currently assigned to you, with a status filter |
+| `GET /staff/complaints/<id>` | `maintenance_staff` | Details, resolution, history, status button (shown only for transitions in `schema.ALLOWED_TRANSITIONS`), resolution details (required to resolve), optional remarks, and a stand-alone "Add remark" form |
+
+Signed-out visitors are redirected to `/login`; other roles to `/home`. The pages never decide
+access: every read and write goes through the `/api/staff/...` endpoints below, so another staff
+member's complaint returns 403 (shown as a message, with no data or controls) and a change is only
+shown as done after the server has saved it and the page has re-read the complaint.
+
+There is no link to the dashboard on `/staff` yet (that template is outside this module); until one
+is added, staff open `/staff/complaints` directly.
 
 ## Endpoints
 

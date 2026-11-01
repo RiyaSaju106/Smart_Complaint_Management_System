@@ -4,15 +4,17 @@ Every function takes an open cursor (rows come back as dicts, see db.connection)
 parameterised SQL (SEC-003). Nothing here commits or rolls back: the route owns the transaction, so
 a resolution, its history row and the status change succeed or fail together.
 
+Status history is not written here: routes call the shared record_status_change().
+
 Timestamps are not set here; MySQL fills them (DEFAULT / ON UPDATE CURRENT_TIMESTAMP).
 """
 import uuid
-from app.tracking.service import record_status_change
+
 
 def list_assigned(cur, staff_id, status=None):
     """Complaints whose *current* assignment is this staff member, newest first."""
     sql = (
-        "SELECT c.complaint_id, c.title, c.category_id, cat.name AS category, c.location, "
+        "SELECT c.complaint_id, c.resident_id, c.title, c.category_id, cat.name AS category, c.location, "
         "c.status, c.created_at "
         "FROM complaints c "
         "JOIN assignments a ON a.complaint_id = c.complaint_id AND a.is_current = TRUE "
@@ -61,11 +63,6 @@ def insert_resolution(cur, complaint_id, resolved_by, details):
     )
 
 
-def insert_history(cur, complaint_id, old_status, new_status, changed_by, remarks):
-    """Append one status_history row. That table is append-only: never UPDATE or DELETE it."""
-    record_status_change(cur, complaint_id, old_status, new_status, changed_by, remarks)
-
-
 def set_status(cur, complaint_id, new_status):
     """Update the complaint's status and return the new updated_at (set by MySQL)."""
     cur.execute(
@@ -77,7 +74,7 @@ def set_status(cur, complaint_id, new_status):
 
 def get_detail(cur, complaint_id):
     cur.execute(
-        "SELECT c.complaint_id, c.title, c.description, c.location, c.status, c.category_id, "
+        "SELECT c.complaint_id, c.resident_id, c.title, c.description, c.location, c.status, c.category_id, "
         "cat.name AS category, c.created_at, c.updated_at "
         "FROM complaints c JOIN categories cat ON cat.category_id = c.category_id "
         "WHERE c.complaint_id = %s",
@@ -95,10 +92,19 @@ def get_resolution(cur, complaint_id):
 
 
 def list_history(cur, complaint_id):
-    """Oldest first. changed_at ties are broken by insertion-independent columns only."""
+    """Status history, oldest first. Read-only: history is written only through the shared
+    record_status_change() helper and is never updated or deleted here.
+
+    changed_at has one-second resolution, so rows from the same second are ordered by lifecycle
+    position (the transition into a status before remarks recorded while in it), then history_id
+    so the order is at least stable.
+    """
     cur.execute(
         "SELECT old_status, new_status, changed_by, remarks, changed_at FROM status_history "
-        "WHERE complaint_id = %s ORDER BY changed_at, new_status",
+        "WHERE complaint_id = %s "
+        "ORDER BY changed_at, "
+        "FIELD(new_status, 'submitted', 'assigned', 'in_progress', 'resolved', 'closed'), "
+        "(old_status <=> new_status), history_id",
         (complaint_id,),
     )
     return cur.fetchall()

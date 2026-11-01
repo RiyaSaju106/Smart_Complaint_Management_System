@@ -4,7 +4,6 @@ closure authorization and status_history persistence.
 import pymysql
 import pytest
 
-import process.queries as queries
 import process.routes as routes
 
 
@@ -391,7 +390,7 @@ def test_failure_mid_transaction_rolls_back_everything(seed, conn, client_for, m
     def lost_connection(*args, **kwargs):
         raise pymysql.err.OperationalError(2013, "Lost connection to MySQL server")
 
-    monkeypatch.setattr(queries, "insert_history", lost_connection)
+    monkeypatch.setattr(routes.tracking, "record_status_change", lost_connection)
     resp = client_for(staff, "maintenance_staff").patch(
         status_url(cid), json={"status": "resolved", "resolution_details": "Fixed"})
     assert resp.status_code == 500

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SCMS{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
+  <link rel="stylesheet" href="{{ url_for('processing_pages.static', filename='css/staff_processing.css') }}">
+</head>
+<body>
+  <header class="staff">
+    <strong>Smart Complaint Management System</strong>
+    <span class="nav">
+      <span class="badge">Maintenance Staff</span>
+      <a href="/staff/complaints">My complaints</a>
+      <a href="/notifications">Notifications</a>
+      <a href="#" data-logout>Sign out</a>
+    </span>
+  </header>
+  {% block body %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

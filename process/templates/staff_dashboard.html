@@ -1,0 +1,33 @@
+{% extends "_staff_base.html" %}
+{% block title %}SCMS – My assigned complaints{% endblock %}
+{% block body %}
+<main class="wide">
+  <h1 class="page-title">My assigned complaints</h1>
+  <p class="lead">Complaints currently assigned to {{ name or "you" }}, newest first. Open one to update its status.</p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <div class="panel-bar">
+      <label for="status-filter">Show</label>
+      <select id="status-filter">
+        <option value="">All statuses</option>
+        {% for s in statuses if s in ("assigned", "in_progress", "resolved", "closed") %}
+        <option value="{{ s }}">{{ s.replace("_", " ")|capitalize }}</option>
+        {% endfor %}
+      </select>
+      <span id="count" class="hint"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="complaints">
+        <thead>
+          <tr><th>Title</th><th>Category</th><th>Location</th><th>Status</th><th>Raised</th><th></th></tr>
+        </thead>
+        <tbody id="complaint-rows">
+          <tr><td colspan="6" class="empty">Loading complaints...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('processing_pages.static', filename='js/staff_dashboard.js') }}"></script>{% endblock %}

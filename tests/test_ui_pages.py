@@ -223,3 +223,42 @@ def test_tracking_assets_are_served(client):
 def test_assignment_page_loads_the_shared_tracking_reader(client):
     log_in_as(client, "administrator")
     assert b"js/tracking.js" in client.get("/admin/assignments").data
+
+
+# ---------------------------------------------------------------- reports page and dashboard tiles (issue #34)
+
+def test_reports_page_requires_login(client):
+    response = client.get("/admin/reports")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_reports_page_renders_for_administrator(client):
+    log_in_as(client, "administrator")
+    response = client.get("/admin/reports")
+    assert response.status_code == 200
+    for marker in (b'id="range-form"', b'id="summary-tiles"', b'id="report-status"', b'id="report-category"',
+                   b'id="report-department"', b'id="report-period"', b'id="report-workload"',
+                   b'id="report-pending"', b"js/admin_reports.js", b"css/admin_reports.css"):
+        assert marker in response.data
+
+
+@pytest.mark.parametrize("role", ["resident", "maintenance_staff", "superuser"])
+def test_reports_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/admin/reports")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_admin_dashboard_shows_figures_and_links_to_reports(client):
+    log_in_as(client, "administrator")
+    page = client.get("/admin").data
+    assert b'id="summary-tiles"' in page and b"js/admin_reports.js" in page
+    assert b'href="/admin/reports"' in page
+    assert b"Reports and complaint counts <em>(coming" not in page
+
+
+def test_reports_assets_are_served(client):
+    for path in ("/static/js/admin_reports.js", "/static/css/admin_reports.css"):
+        assert client.get(path).status_code == 200, path

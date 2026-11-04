@@ -67,6 +67,7 @@ def create_app():
     from app.tracking import tracking_bp
     from app.tracking import routes as tracking_routes
     from app.tracking import search as tracking_search
+    from app.reports import reports_bp
     from app.ui import ui_bp            
 
     app.register_blueprint(auth_bp)
@@ -78,6 +79,7 @@ def create_app():
     app.register_blueprint(notifications_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(tracking_bp)
+    app.register_blueprint(reports_bp)
     app.register_blueprint(ui_bp)
 
     return app

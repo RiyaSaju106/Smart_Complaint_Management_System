@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – Reports{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_reports.css') }}">{% endblock %}
+{% block body %}
+<header class="admin">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Administrator</span>
+    <a href="{{ url_for('roles.admin_home') }}">Dashboard</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide">
+  <h1 class="page-title">Complaint reports</h1>
+  <p class="lead">Counted live from the complaint records. Choose dates to limit every figure on this page to complaints submitted in that period.</p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <form id="range-form" class="inline-form" novalidate>
+      <div class="field"><label for="range-from">Submitted from</label><input id="range-from" name="from" type="date"></div>
+      <div class="field"><label for="range-to">Submitted to</label><input id="range-to" name="to" type="date"></div>
+      <button class="primary" type="submit">Apply</button>
+      <button class="small" type="button" id="clear-range">All time</button>
+      <span id="as-of" class="as-of"></span>
+    </form>
+  </section>
+
+  <div id="summary-tiles" class="stat-row" aria-live="polite"><p>Loading figures...</p></div>
+  <div id="status-tiles" class="stat-row statuses"></div>
+
+  <div class="report-grid">
+    <section class="panel"><h2>By status</h2><table class="data-table" id="report-status"><tbody><tr><td>Loading...</td></tr></tbody></table></section>
+    <section class="panel"><h2>By category</h2><table class="data-table" id="report-category"><tbody><tr><td>Loading...</td></tr></tbody></table></section>
+    <section class="panel"><h2>By department</h2><table class="data-table" id="report-department"><tbody><tr><td>Loading...</td></tr></tbody></table>
+      <p class="report-note">Uses each complaint's current assignment. "Open" means not yet resolved or closed.</p></section>
+    <section class="panel">
+      <div class="panel-head"><h2>By period</h2>
+        <label>Group by <select id="period-group"><option value="month" selected>Month</option><option value="day">Day</option></select></label></div>
+      <table class="data-table" id="report-period"><tbody><tr><td>Loading...</td></tr></tbody></table></section>
+  </div>
+
+  <section class="panel"><h2>Staff workload</h2><table class="data-table" id="report-workload"><tbody><tr><td>Loading...</td></tr></tbody></table>
+    <p class="report-note">Complaints currently assigned to each maintenance staff member.</p></section>
+
+  <section class="panel"><h2>Pending and unresolved complaints</h2><table class="data-table" id="report-pending"><tbody><tr><td>Loading...</td></tr></tbody></table>
+    <p class="report-note" id="pending-note"></p></section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin_reports.js') }}"></script>{% endblock %}

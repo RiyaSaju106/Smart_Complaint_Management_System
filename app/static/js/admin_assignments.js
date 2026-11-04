@@ -3,7 +3,7 @@
 //   GET  /api/complaints                         list and search (#27)
 //   GET  /api/departments, /api/departments/{id}/staff   options (#18)
 //   POST /api/complaints/{id}/assignment         assign or reassign (#19)
-//   GET  /api/complaints/{id}/history            status history (#26)
+//   GET  /api/complaints/{id}/history            status history (#26), read through scmsTracking (tracking.js)
 // This page only shows their results and errors. All text is inserted with textContent.
 (function () {
   const STATUS_LABELS = {
@@ -182,14 +182,17 @@
     const assigned = describeAssignment(complaint.current_assignment);
     td.appendChild(el("p", "Complaint ID: " + complaint.complaint_id + " · Location: " + complaint.location +
       " · Currently assigned to: " + (assigned || "nobody")));
+    const history = result.ok
+      ? scmsTracking.readHistory(result.data, (id) => "user " + String(id || "").slice(0, 8))
+      : null;
     if (!result.ok) { td.appendChild(el("p", "Could not load history: " + scmsErrorMessage(result))); }
-    else if (!result.data.items.length) { td.appendChild(el("p", "No status changes recorded yet.", "muted")); }
+    else if (!history.length) { td.appendChild(el("p", "No status changes recorded yet.", "muted")); }
     else {
       const list = el("ol", null, "history");
-      for (const h of result.data.items) {
+      for (const h of history) {
         const change = (h.old_status ? (STATUS_LABELS[h.old_status] || h.old_status) + " → " : "") +
           (STATUS_LABELS[h.new_status] || h.new_status);
-        list.appendChild(el("li", formatDate(h.changed_at) + " — " + change + " by " + h.changed_by.name +
+        list.appendChild(el("li", formatDate(h.changed_at) + " — " + change + " by " + h.actor +
           (h.remarks ? " (" + h.remarks + ")" : "")));
       }
       td.appendChild(list);

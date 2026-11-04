@@ -51,6 +51,18 @@ def new_complaint_page():
     return render_template("complaint_new.html", name=session.get("name"))
 
 
+@ui_bp.route("/complaints")
+def my_complaints_page():
+    if "user_id" not in session:
+        return redirect(url_for("ui.login_page"))
+    if session.get("role") != RESIDENT:
+        # Staff and administrators track complaints from their own pages.
+        return redirect(url_for("roles.home"))
+    return render_template(
+        "my_complaints.html", name=session.get("name"), user_id=session["user_id"]
+    )
+
+
 @ui_bp.route("/admin/categories")
 def admin_categories_page():
     if "user_id" not in session:

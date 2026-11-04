@@ -72,6 +72,15 @@ def admin_categories_page():
     return render_template("admin_categories.html", name=session.get("name"))
 
 
+@ui_bp.route("/admin/reports")
+def admin_reports_page():
+    if "user_id" not in session:
+        return redirect(url_for("ui.login_page"))
+    if session.get("role") != ADMINISTRATOR:
+        return redirect(url_for("roles.home"))
+    return render_template("admin_reports.html", name=session.get("name"))
+
+
 @ui_bp.route("/admin/assignments")
 def admin_assignments_page():
     if "user_id" not in session:

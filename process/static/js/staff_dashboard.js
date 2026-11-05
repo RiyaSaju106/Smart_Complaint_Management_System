@@ -71,4 +71,15 @@
 
   filter.addEventListener("change", load);
   load();
+
+  let debounceTimer;
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(load, 300);
+    });
+  }
+
+  filter.addEventListener("change", load);
+  load();
 })();

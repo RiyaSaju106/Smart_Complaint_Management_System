@@ -1,62 +1,57 @@
 {% extends "_staff_base.html" %}
-{% block title %}SCMS – Complaint{% endblock %}
+{% block title %}SCMS – Complaint details{% endblock %}
 {% block body %}
 <main class="wide" id="complaint-page"
       data-complaint-id="{{ complaint_id }}"
-      data-transitions="{{ transitions }}"
-      data-remarkable="{{ remarkable }}"
+      data-transitions='{{ transitions }}'
+      data-remarkable='{{ remarkable }}'
       data-max-remarks="{{ max_remarks }}"
       data-max-details="{{ max_details }}">
-  <p class="link-row"><a href="/staff/complaints">&larr; Back to my complaints</a></p>
+  <p><a href="{{ url_for('processing_pages.staff_dashboard_page') }}">&larr; Back to my assigned complaints</a></p>
+  <h1 class="page-title" id="d-title">Complaint</h1>
   <div id="message" class="msg" hidden role="alert"></div>
 
-  <section id="detail" class="panel" hidden>
-    <div class="detail-head">
-      <h1 class="page-title" id="d-title"></h1>
-      <span id="d-status" class="status-pill"></span>
-    </div>
+  <section class="panel" id="detail" hidden>
     <dl class="facts">
+      <dt>Status</dt><dd><span id="d-status" class="status-pill"></span></dd>
       <dt>Category</dt><dd id="d-category"></dd>
       <dt>Location</dt><dd id="d-location"></dd>
       <dt>Raised</dt><dd id="d-created"></dd>
       <dt>Last updated</dt><dd id="d-updated"></dd>
+      <dt>Description</dt><dd id="d-description" class="prewrap"></dd>
     </dl>
-    <h2>Description</h2>
-    <p id="d-description" class="prewrap"></p>
+
     <div id="d-resolution" hidden>
       <h2>Resolution</h2>
       <p id="d-resolution-details" class="prewrap"></p>
-      <p class="hint" id="d-resolution-meta"></p>
+      <p id="d-resolution-meta" class="hint"></p>
     </div>
   </section>
 
-  <section id="actions" class="panel" hidden>
-    <h2>Update status</h2>
-    <form id="status-form" novalidate>
-      <p id="status-help" class="hint"></p>
-      <div class="field" id="details-field" hidden>
+  <section class="panel" id="actions" hidden>
+    <h2>Update this complaint</h2>
+
+    <form id="status-form" onsubmit="return false" hidden>
+      <p class="hint" id="status-help"></p>
+      <div id="details-field" hidden>
         <label for="resolution-details">Resolution details (required to resolve)</label>
-        <textarea id="resolution-details" rows="4"></textarea>
+        <textarea id="resolution-details" rows="4" maxlength="{{ max_details }}"
+                  placeholder="Describe what was done to resolve this complaint"></textarea>
       </div>
-      <div class="field">
-        <label for="status-remarks">Remarks (optional)</label>
-        <textarea id="status-remarks" rows="2"></textarea>
-      </div>
-      <div class="button-row" id="status-buttons"></div>
+      <label for="status-remarks">Remarks (optional, saved in the history)</label>
+      <textarea id="status-remarks" rows="2" maxlength="{{ max_remarks }}"></textarea>
+      <div id="status-buttons" class="button-row"></div>
     </form>
 
-    <form id="remark-form" novalidate>
-      <h2>Add a remark without changing the status</h2>
-      <div class="field">
-        <label for="remark-text">Remark</label>
-        <textarea id="remark-text" rows="2"></textarea>
-      </div>
-      <button type="submit" class="secondary">Add remark</button>
+    <form id="remark-form" hidden>
+      <label for="remark-text">Add a remark without changing the status</label>
+      <textarea id="remark-text" rows="2" maxlength="{{ max_remarks }}"></textarea>
+      <div class="button-row"><button type="submit">Add remark</button></div>
     </form>
   </section>
 
-  <section id="history-panel" class="panel" hidden>
-    <h2>History</h2>
+  <section class="panel" id="history-panel" hidden>
+    <h2>Status history</h2>
     <ol id="history" class="history"></ol>
   </section>
 </main>

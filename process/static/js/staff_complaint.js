@@ -77,6 +77,7 @@
     $("status-help").textContent = next.length
       ? "Move this complaint to the next step."
       : "";
+    
     const buttons = $("status-buttons");
     buttons.replaceChildren();
     for (const target of next) {
@@ -119,6 +120,7 @@
       if (!details) return show("Resolution details are required to resolve a complaint.", "error");
       if (details.length > maxDetails) return show("Resolution details must be at most " + maxDetails + " characters.", "error");
     }
+    if (target === "resolved" && !window.confirm("Mark this complaint as resolved? You will not be able to change it afterwards.")) return;
     const body = { status: target };
     if (remarks) body.remarks = remarks;
     if (target === "resolved") body.resolution_details = details;

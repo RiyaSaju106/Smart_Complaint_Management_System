@@ -109,6 +109,9 @@ def update_status(complaint_id):
     new_status = parsed["status"]
     user_id = session["user_id"]
 
+    if new_status == "closed":
+        return error(400, "INVALID_STATE_TRANSITION", "Maintenance staff cannot close complaints.")
+
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -140,7 +143,6 @@ def update_status(complaint_id):
         raise
     finally:
         conn.close()
-
     # FR-019: tell the resident, after the change is committed. notify() never raises.
     event = (
         notifications.COMPLAINT_RESOLVED if new_status == "resolved"
@@ -354,3 +356,32 @@ def close_complaint(complaint_id):
         "message": "Complaint has been closed.",
         "data": {"complaint_id": complaint_id, "status": "closed", "closed_at": _iso(closed_at)},
     }), 200
+
+@processing_bp.get("/staff/complaints/search")
+@role_required(MAINTENANCE_STAFF)
+def search_assigned_complaints():
+    """FR-017 & FR-018: Endpoint for searching and filtering complaints."""
+    filters, problem = schema.parse_search_filters(request.args)
+    if problem:
+        return _validation_error(problem)
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            rows = queries.search_complaints(cur, session["user_id"], filters, role=MAINTENANCE_STAFF)
+    finally:
+        conn.close()
+
+    data = [
+        {
+            "complaint_id": r["complaint_id"],
+            "title": r["title"],
+            "category": r["category"],
+            "category_id": r["category_id"],
+            "location": r["location"],
+            "status": r["status"],
+            "created_at": _iso(r["created_at"]),
+        }
+        for r in rows
+    ]
+    return jsonify({"status": "success", "data": data}), 200

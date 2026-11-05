@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – Users and staff{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_users.css') }}">{% endblock %}
+{% block body %}
+<header class="admin">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Administrator</span>
+    <a href="{{ url_for('roles.admin_home') }}">Dashboard</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide">
+  <h1 class="page-title">Users and staff</h1>
+  <p class="lead">Create, edit and deactivate resident and maintenance staff accounts.
+    A deactivated account cannot sign in.</p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <h2>Add an account</h2>
+    <form id="create-form" class="inline-form" novalidate>
+      <div class="field"><label for="new-role">Role</label>
+        <select id="new-role" name="role">
+          <option value="resident">Resident</option>
+          <option value="maintenance_staff">Maintenance staff</option>
+        </select></div>
+      <div class="field"><label for="new-name">Full name</label>
+        <input id="new-name" name="name" maxlength="100" required></div>
+      <div class="field"><label for="new-email">Email</label>
+        <input id="new-email" name="email" type="email" maxlength="100" autocomplete="off" required></div>
+      <div class="field"><label for="new-password">Temporary password</label>
+        <input id="new-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></div>
+      <div class="field"><label for="new-contact">Contact number <span class="optional" data-staff-only>(optional)</span></label>
+        <input id="new-contact" name="contact_number" maxlength="15"></div>
+      <div class="field" data-resident-only><label for="new-unit">Unit address</label>
+        <input id="new-unit" name="unit_address" maxlength="150"></div>
+      <div class="field" data-staff-only><label for="new-department">Department</label>
+        <select id="new-department" name="department_id"><option value="">Loading departments...</option></select></div>
+      <button class="primary" type="submit" id="create-submit">Add account</button>
+    </form>
+    <p class="hint">Share the temporary password with the person directly. Passwords are stored hashed and never shown again.</p>
+  </section>
+
+  <section class="panel">
+    <h2 id="list-heading">Accounts</h2>
+    <form id="filter-form" class="inline-form" novalidate>
+      <div class="field"><label for="filter-role">Role</label>
+        <select id="filter-role" name="role">
+          <option value="">All roles</option>
+          <option value="resident">Residents</option>
+          <option value="maintenance_staff">Maintenance staff</option>
+        </select></div>
+      <div class="field"><label for="filter-status">Status</label>
+        <select id="filter-status" name="status">
+          <option value="">Any status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select></div>
+      <div class="field"><label for="filter-department">Department</label>
+        <select id="filter-department" name="department_id"><option value="">Any department</option></select></div>
+      <div class="field grow"><label for="filter-q">Search name or email</label>
+        <input id="filter-q" name="q" maxlength="100"></div>
+      <button class="primary" type="submit">Search</button>
+    </form>
+    <table class="data-table users-table">
+      <thead><tr><th>Name</th><th>Role</th><th>Department / unit</th><th>Contact</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="user-rows"><tr><td colspan="6">Loading accounts...</td></tr></tbody>
+    </table>
+    <div class="pager">
+      <button type="button" class="small" id="prev-page" disabled>Previous</button>
+      <span id="page-info"></span>
+      <button type="button" class="small" id="next-page" disabled>Next</button>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin_users.js') }}"></script>{% endblock %}

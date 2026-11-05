@@ -72,10 +72,13 @@
     }
   }
 
-  async function openDetail(complaint, tr, opener) {
+// Resident complaints page. Replaces your openDetail(); everything else on the page is unchanged.
+// New: a "Close complaint" form shown only while the complaint is resolved, and an optional
+// `notice` argument so a success message survives the re-render after closing.
+async function openDetail(complaint, tr, opener, notice) {
     const wasOpen = tr.nextElementSibling && tr.nextElementSibling.classList.contains("detail");
     closeDetail();
-    if (wasOpen) return; // second click closes it
+    if (wasOpen && !notice) return; // second click closes it
     opener.setAttribute("aria-expanded", "true");
     const detail = el("tr", null, "detail");
     const td = el("td");
@@ -92,6 +95,8 @@
     if (leaveIfUnauthorized(statusResult) || leaveIfUnauthorized(historyResult)) return;
     td.textContent = "";
 
+    if (notice) td.appendChild(el("p", notice, "form-success"));
+
     const grid = el("div", null, "detail-grid");
     function fact(label, value) {
       const box = el("div");
@@ -100,8 +105,10 @@
     }
     fact("Complaint ID", complaint.complaint_id);
     fact("Location", complaint.location || "—");
+    let currentStatus = complaint.status;
     if (statusResult.ok) {
       const status = T.readStatus(statusResult.data);
+      currentStatus = status.status;
       fact("Current status", statusPill(status.status));
       fact("Last updated", formatDate(status.updated_at));
     } else {
@@ -128,7 +135,64 @@
         td.appendChild(list);
       }
     }
+
+    // Closure is only offered once staff have resolved the complaint. The server re-checks this,
+    // that the caller owns the complaint, and that resolution details exist.
+    if (currentStatus === "resolved") td.appendChild(closeForm(complaint, tr, opener));
+    else if (currentStatus === "closed") td.appendChild(el("p", "This complaint is closed.", "muted"));
+
     td.appendChild(button("Close", closeDetail));
+  }
+
+  // Name kept apart from closeDetail (which collapses the panel) to avoid confusion.
+  function closeForm(complaint, tr, opener) {
+    const MAX_NOTES = 500; // matches schema.MAX_REMARKS
+    const box = el("div", null, "close-form");
+    box.appendChild(el("h3", "This complaint has been resolved", "detail-heading"));
+    box.appendChild(el("p", "If you are satisfied with the resolution, you can close the complaint. " +
+      "Closing cannot be undone.", "muted"));
+
+    const label = el("label", "Closing notes (optional)");
+    const notes = document.createElement("textarea");
+    notes.rows = 2;
+    notes.maxLength = MAX_NOTES;
+    label.appendChild(notes);
+    box.appendChild(label);
+
+    const error = el("p", null, "form-error");
+    error.hidden = true;
+    box.appendChild(error);
+
+    const submit = button("Close complaint", async () => {
+      error.hidden = true;
+      const text = notes.value.trim();
+      if (text.length > MAX_NOTES) {
+        error.textContent = "Closing notes must be at most " + MAX_NOTES + " characters.";
+        error.hidden = false;
+        return;
+      }
+      if (!window.confirm("Close this complaint? This cannot be undone.")) return;
+
+      submit.disabled = true;
+      const body = { confirmation: true };
+      if (text) body.closure_notes = text;
+      const result = await scmsApi("PATCH",
+        "/api/complaints/" + encodeURIComponent(complaint.complaint_id) + "/close", body);
+      if (leaveIfUnauthorized(result)) return;
+      if (!result.ok) {
+        submit.disabled = false;
+        error.textContent = scmsErrorMessage(result);
+        error.hidden = false;
+        return;
+      }
+
+      // Reflect the saved state: update the row's status pill, then re-read the panel from the server.
+      complaint.status = "closed";
+      tr.children[2].replaceChildren(statusPill("closed"));
+      openDetail(complaint, tr, opener, result.data.message || "Complaint has been closed.");
+    }, "primary");
+    box.appendChild(submit);
+    return box;
   }
 
   function complaintRow(complaint) {

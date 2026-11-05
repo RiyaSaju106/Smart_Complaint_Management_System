@@ -77,7 +77,6 @@
     $("status-help").textContent = next.length
       ? "Move this complaint to the next step."
       : "";
-    
     const buttons = $("status-buttons");
     buttons.replaceChildren();
     for (const target of next) {
@@ -88,9 +87,12 @@
       b.textContent = BUTTON_TEXT[target] || "Move to " + label(target);
       buttons.appendChild(b);
     }
-    if (!next.length && !canRemark) {
-      show("This complaint is " + label(status).toLowerCase() + "; no further staff action is available.", "success");
-    }
+    // Persistent note (a transient message would be overwritten by the success message after a save).
+    const waiting = $("waiting-note");
+    waiting.hidden = !(status === "resolved" || status === "closed");
+    waiting.textContent = status === "resolved"
+      ? "Resolved. Waiting for the resident to confirm and close this complaint."
+      : status === "closed" ? "This complaint has been closed by the resident or an administrator." : "";
   }
 
   async function load() {
@@ -120,7 +122,8 @@
       if (!details) return show("Resolution details are required to resolve a complaint.", "error");
       if (details.length > maxDetails) return show("Resolution details must be at most " + maxDetails + " characters.", "error");
     }
-    if (target === "resolved" && !window.confirm("Mark this complaint as resolved? You will not be able to change it afterwards.")) return;
+    if (target === "resolved" &&
+        !window.confirm("Mark this complaint as resolved? You will not be able to change it afterwards.")) return;
     const body = { status: target };
     if (remarks) body.remarks = remarks;
     if (target === "resolved") body.resolution_details = details;

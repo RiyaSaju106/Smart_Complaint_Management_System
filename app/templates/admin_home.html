@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}SCMS – Administrator{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_reports.css') }}">{% endblock %}
 {% block body %}
 <header class="admin">
   <strong>Smart Complaint Management System</strong>
@@ -12,9 +13,11 @@
 <main>
   <h1>Administrator Dashboard</h1>
   <p>Signed in as {{ name or "Administrator" }}.</p>
+  <div id="summary-tiles" class="stat-row" aria-live="polite"><p>Loading complaint figures...</p></div>
   <a class="card" style="display:block" href="{{ url_for('ui.admin_categories_page') }}">Manage categories and departments</a>
-  <div class="card">Manage users and staff <em>(coming in Sprint 3)</em></div>
+  <div class="card">Manage users and staff <em>(coming soon)</em></div>
   <a class="card" style="display:block" href="{{ url_for('ui.admin_assignments_page') }}">Assign complaints</a>
-  <div class="card">Reports and complaint counts <em>(coming in Sprint 3)</em></div>
+  <a class="card" style="display:block" href="{{ url_for('ui.admin_reports_page') }}">Reports and complaint counts</a>
 </main>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin_reports.js') }}"></script>{% endblock %}

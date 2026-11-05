@@ -4,14 +4,18 @@
 {% block body %}
 <header class="staff">
   <strong>Smart Complaint Management System</strong>
-  <span class="badge">Maintenance Staff</span>
+  <span class="nav">
+    <span class="badge">Maintenance Staff</span>
+    <a href="{{ url_for('ui.notifications_page') }}">Notifications</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
 </header>
 
 <main>
   <h1>Welcome, {{ name or "Maintenance Staff" }}</h1>
 
-  <div class="card">
+  <a class="card" style="display:block" href="/staff/complaints">
     View and process complaints currently assigned to you.
-  </div>
+  </a>
 </main>
 {% endblock %}

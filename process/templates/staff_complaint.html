@@ -1,0 +1,64 @@
+{% extends "_staff_base.html" %}
+{% block title %}SCMS – Complaint{% endblock %}
+{% block body %}
+<main class="wide" id="complaint-page"
+      data-complaint-id="{{ complaint_id }}"
+      data-transitions="{{ transitions }}"
+      data-remarkable="{{ remarkable }}"
+      data-max-remarks="{{ max_remarks }}"
+      data-max-details="{{ max_details }}">
+  <p class="link-row"><a href="/staff/complaints">&larr; Back to my complaints</a></p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section id="detail" class="panel" hidden>
+    <div class="detail-head">
+      <h1 class="page-title" id="d-title"></h1>
+      <span id="d-status" class="status-pill"></span>
+    </div>
+    <dl class="facts">
+      <dt>Category</dt><dd id="d-category"></dd>
+      <dt>Location</dt><dd id="d-location"></dd>
+      <dt>Raised</dt><dd id="d-created"></dd>
+      <dt>Last updated</dt><dd id="d-updated"></dd>
+    </dl>
+    <h2>Description</h2>
+    <p id="d-description" class="prewrap"></p>
+    <div id="d-resolution" hidden>
+      <h2>Resolution</h2>
+      <p id="d-resolution-details" class="prewrap"></p>
+      <p class="hint" id="d-resolution-meta"></p>
+    </div>
+  </section>
+
+  <section id="actions" class="panel" hidden>
+    <h2>Update status</h2>
+    <form id="status-form" novalidate>
+      <p id="status-help" class="hint"></p>
+      <div class="field" id="details-field" hidden>
+        <label for="resolution-details">Resolution details (required to resolve)</label>
+        <textarea id="resolution-details" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label for="status-remarks">Remarks (optional)</label>
+        <textarea id="status-remarks" rows="2"></textarea>
+      </div>
+      <div class="button-row" id="status-buttons"></div>
+    </form>
+
+    <form id="remark-form" novalidate>
+      <h2>Add a remark without changing the status</h2>
+      <div class="field">
+        <label for="remark-text">Remark</label>
+        <textarea id="remark-text" rows="2"></textarea>
+      </div>
+      <button type="submit" class="secondary">Add remark</button>
+    </form>
+  </section>
+
+  <section id="history-panel" class="panel" hidden>
+    <h2>History</h2>
+    <ol id="history" class="history"></ol>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('processing_pages.static', filename='js/staff_complaint.js') }}"></script>{% endblock %}

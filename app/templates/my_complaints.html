@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}SCMS – My complaints{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/my_complaints.css') }}">{% endblock %}
+{% block body %}
+<header class="resident">
+  <span class="brand-inline">{{ icon("logo", 26) }} <strong>SCMS</strong></span>
+  <span class="nav">
+    <span class="badge">Resident</span>
+    <a href="{{ url_for('roles.resident_home') }}">Home</a>
+    <a href="{{ url_for('ui.notifications_page') }}">Notifications</a>
+    <a href="#" data-logout>Sign out</a>
+  </span>
+</header>
+<main class="wide" id="my-complaints" data-user-id="{{ user_id }}">
+  <h1 class="page-title">My complaints</h1>
+  <p class="lead">Track the status and history of the complaints you have submitted.
+    <a href="{{ url_for('ui.new_complaint_page') }}">Register a new complaint</a></p>
+  <div id="message" class="msg" hidden role="alert"></div>
+
+  <section class="panel">
+    <form id="filter-form" class="inline-form" novalidate>
+      <div class="field grow"><label for="filter-q">Search by Complaint ID or keyword</label>
+        <input id="filter-q" name="q" maxlength="100" placeholder="e.g. leaking tap, or paste a Complaint ID"></div>
+      <div class="field"><label for="filter-status">Status</label>
+        <select id="filter-status" name="status">
+          <option value="">Any status</option>
+          <option value="submitted">Submitted</option>
+          <option value="assigned">Assigned</option>
+          <option value="in_progress">In progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select></div>
+      <div class="field"><label for="filter-category">Category</label>
+        <select id="filter-category" name="category_id"><option value="">Any category</option></select></div>
+      <div class="field"><label for="filter-from">From</label>
+        <input id="filter-from" name="from" type="date"></div>
+      <div class="field"><label for="filter-to">To</label>
+        <input id="filter-to" name="to" type="date"></div>
+      <button class="primary" type="submit">Search</button>
+      <button class="small" type="button" id="clear-filters">Clear</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2 id="list-heading">Complaints</h2>
+    <table class="data-table">
+      <thead><tr><th>Complaint</th><th>Category</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+      <tbody id="complaint-rows"><tr><td colspan="5">Loading your complaints...</td></tr></tbody>
+    </table>
+    <div class="pager">
+      <button type="button" class="small" id="prev-page" disabled>Previous</button>
+      <span id="page-info"></span>
+      <button type="button" class="small" id="next-page" disabled>Next</button>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tracking.js') }}"></script>
+<script src="{{ url_for('static', filename='js/my_complaints.js') }}"></script>
+{% endblock %}

@@ -11,18 +11,18 @@
     <p>Report an issue in your community.</p>
     <span class="feature-arrow">{{ icon("arrow", 18) }}</span>
   </a>
-  <div class="feature tone-blue is-disabled" aria-disabled="true">
+  <a class="feature tone-blue" href="{{ url_for('ui.my_complaints_page') }}#search">
     <span class="feature-icon">{{ icon("search", 24) }}</span>
     <h3>Track Complaint</h3>
     <p>Check the status and updates of your complaints.</p>
-    <span class="soon">Coming soon</span>
-  </div>
-  <div class="feature tone-orange is-disabled" aria-disabled="true">
+    <span class="feature-arrow">{{ icon("arrow", 18) }}</span>
+  </a>
+  <a class="feature tone-orange" href="{{ url_for('ui.my_complaints_page') }}">
     <span class="feature-icon">{{ icon("list", 24) }}</span>
     <h3>My Complaints</h3>
     <p>View all your submitted complaints and their history.</p>
-    <span class="soon">Coming soon</span>
-  </div>
+    <span class="feature-arrow">{{ icon("arrow", 18) }}</span>
+  </a>
   {% else %}
   <div class="feature tone-green">
     <span class="feature-icon">{{ icon("doc-plus", 24) }}</span>

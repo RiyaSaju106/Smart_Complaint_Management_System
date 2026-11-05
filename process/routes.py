@@ -8,7 +8,8 @@ How the module is split:
   schema.py   request validation and the allowed status transitions
   queries.py  PyMySQL SQL, one small function per query
 
-Shared project pieces used here: db.connection.get_connection(), and app.access.role_required /
+Shared project pieces used here: db.connection.get_connection(), app.tracking.service
+.record_status_change() (the one place status history is written) and app.access.role_required /
 error (server-side session role, errors shaped {"error": {"code", "message"}}).
 
 Run everything from the repository root (the folder that contains app/, db/ and this folder), e.g.
@@ -19,14 +20,25 @@ from flask import Blueprint, current_app, jsonify, request, session
 
 from app.access import ADMINISTRATOR, RESIDENT, error, role_required
 from app.notifications import service as notifications
+from app.tracking import service as tracking
 from db.connection import get_connection
 
 from . import queries, schema  # relative: works whatever this folder is named
+from .pages import pages_bp
 
 # /api like the other modules (auth uses /api/auth). SAD 4.3 and the STP still say /api/v1.
 processing_bp = Blueprint("processing", __name__, url_prefix="/api")
 
 MAINTENANCE_STAFF = "maintenance_staff"
+
+
+@processing_bp.record_once
+def _register_staff_pages(state):
+    """The staff browser pages (pages.py) are not under /api, so they are a second blueprint. It is
+    registered here, when processing_bp is, so `app.register_blueprint(processing_bp)` stays the only
+    call anywhere and works for any app, including the minimal one used by the tests."""
+    if pages_bp.name not in state.app.blueprints:
+        state.app.register_blueprint(pages_bp)
 
 
 @processing_bp.errorhandler(pymysql.MySQLError)
@@ -118,7 +130,7 @@ def update_status(complaint_id):
                     )
                 queries.insert_resolution(cur, complaint_id, user_id, parsed["resolution_details"])
 
-            queries.insert_history(
+            tracking.record_status_change(
                 cur, complaint_id, old_status, new_status, user_id, parsed["remarks"]
             )
             updated_at = queries.set_status(cur, complaint_id, new_status)
@@ -201,7 +213,7 @@ def add_remark(complaint_id):
             status = complaint["status"]
             if status not in schema.REMARKABLE_STATUSES:
                 return _invalid_transition(status, status)
-            queries.insert_history(cur, complaint_id, status, status, user_id, remarks)
+            tracking.record_status_change(cur, complaint_id, status, status, user_id, remarks)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -214,6 +226,78 @@ def add_remark(complaint_id):
         "message": "Remark recorded.",
         "data": {"complaint_id": complaint_id, "status": status},
     }), 201
+
+
+# ---------------------------------------------------------------- tracking (FR-015, FR-016)
+
+TRACKING_ROLES = (RESIDENT, MAINTENANCE_STAFF, ADMINISTRATOR)
+
+
+def _tracking_access(cur, complaint_id):
+    """Shared by the status and history endpoints (SEC-002).
+
+    Returns (complaint, None) when the caller may see the complaint, else (None, error response):
+    401 not logged in, 403 role not allowed, 404 unknown id, 403 outside the caller's scope. The
+    403s carry a fixed message and nothing about the complaint.
+    """
+    if "user_id" not in session:
+        return None, error(401, "UNAUTHENTICATED", "Please log in.")
+    role = session.get("role")
+    if role not in TRACKING_ROLES:
+        return None, error(403, "FORBIDDEN", "You do not have access to this complaint.")
+    complaint = queries.get_detail(cur, complaint_id)
+    if complaint is None:
+        return None, error(404, "NOT_FOUND", "Complaint ID does not exist.")
+    user_id = session["user_id"]
+    if role == RESIDENT:
+        allowed = complaint["resident_id"] == user_id
+    elif role == MAINTENANCE_STAFF:
+        allowed = queries.current_staff_id(cur, complaint_id) == user_id
+    else:
+        allowed = True
+    if not allowed:
+        return None, error(403, "FORBIDDEN", "You do not have access to this complaint.")
+    return complaint, None
+
+
+@processing_bp.get("/complaints/<complaint_id>/status")
+def complaint_status(complaint_id):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            complaint, denied = _tracking_access(cur, complaint_id)
+    finally:
+        conn.close()
+    if denied:
+        return denied
+    return jsonify({"status": "success", "data": {
+        "complaint_id": complaint["complaint_id"],
+        "status": complaint["status"],
+        "updated_at": _iso(complaint["updated_at"]),
+    }}), 200
+
+
+@processing_bp.get("/complaints/<complaint_id>/history")
+def complaint_history(complaint_id):
+    """Read-only on purpose: there is no route to add, change or delete a history row."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            complaint, denied = _tracking_access(cur, complaint_id)
+            history = None if denied else queries.list_history(cur, complaint_id)
+    finally:
+        conn.close()
+    if denied:
+        return denied
+    return jsonify({"status": "success", "data": {
+        "complaint_id": complaint_id,
+        "history": [
+            {"old_status": h["old_status"], "new_status": h["new_status"],
+             "changed_by": h["changed_by"], "remarks": h["remarks"],
+             "changed_at": _iso(h["changed_at"])}
+            for h in history
+        ],
+    }}), 200
 
 
 @processing_bp.patch("/complaints/<complaint_id>/close")
@@ -254,7 +338,7 @@ def close_complaint(complaint_id):
                     "A complaint cannot be closed without documented resolution details."
                 )
 
-            queries.insert_history(cur, complaint_id, old_status, "closed", user_id, notes)
+            tracking.record_status_change(cur, complaint_id, old_status, "closed", user_id, notes)
             closed_at = queries.set_status(cur, complaint_id, "closed")
         conn.commit()
     except Exception:
@@ -265,7 +349,6 @@ def close_complaint(complaint_id):
 
     # FR-019: tell the resident, after the change is committed. notify() never raises.
     notifications.notify(notifications.COMPLAINT_CLOSED, complaint_id, [complaint["resident_id"]])
-
     return jsonify({
         "status": "success",
         "message": "Complaint has been closed.",

@@ -139,3 +139,126 @@ def test_admin_dashboard_links_to_assignment_page(client):
 def test_assignment_page_assets_are_served(client):
     for path in ("/static/js/admin_assignments.js", "/static/css/admin_assignments.css"):
         assert client.get(path).status_code == 200, path
+
+
+# ---------------------------------------------------------------- notification list (issue #58)
+
+def test_notifications_page_requires_login(client):
+    response = client.get("/notifications")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+@pytest.mark.parametrize("role,header", [
+    ("resident", b'<header class="resident">'),
+    ("maintenance_staff", b'<header class="staff">'),
+    ("administrator", b'<header class="admin">'),
+])
+def test_notifications_page_renders_for_every_role(client, role, header):
+    log_in_as(client, role)
+    response = client.get("/notifications")
+    assert response.status_code == 200
+    for marker in (header, b'id="notification-list"', b'id="mark-all-read"', b"js/notifications.js"):
+        assert marker in response.data
+
+
+def test_notifications_page_sends_unknown_role_home(client):
+    log_in_as(client, "superuser")
+    response = client.get("/notifications")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+@pytest.mark.parametrize("role,home", [
+    ("resident", "/resident"), ("maintenance_staff", "/staff"), ("administrator", "/admin"),
+])
+def test_home_pages_link_to_notifications(client, role, home):
+    log_in_as(client, role)
+    assert b'href="/notifications"' in client.get(home).data
+
+
+def test_notifications_script_is_served(client):
+    assert client.get("/static/js/notifications.js").status_code == 200
+
+
+# ---------------------------------------------------------------- resident tracking page (issue #59)
+
+def test_my_complaints_page_requires_login(client):
+    response = client.get("/complaints")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_my_complaints_page_renders_for_resident(client):
+    log_in_as(client, "resident")
+    response = client.get("/complaints")
+    assert response.status_code == 200
+    for marker in (b'id="filter-form"', b'id="complaint-rows"', b'name="q"', b'name="status"',
+                   b'name="category_id"', b'name="from"', b'name="to"',
+                   b"js/tracking.js", b"js/my_complaints.js", b"css/my_complaints.css"):
+        assert marker in response.data
+    assert f'data-user-id="{USER_ID}"'.encode() in response.data
+
+
+@pytest.mark.parametrize("role", ["maintenance_staff", "administrator", "superuser"])
+def test_my_complaints_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/complaints")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_resident_home_links_to_tracking(client):
+    log_in_as(client, "resident")
+    page = client.get("/resident").data
+    assert b'href="/complaints#search"' in page and b'href="/complaints"' in page
+    assert b"Coming soon" not in page
+
+
+def test_tracking_assets_are_served(client):
+    for path in ("/static/js/tracking.js", "/static/js/my_complaints.js", "/static/css/my_complaints.css"):
+        assert client.get(path).status_code == 200, path
+
+
+def test_assignment_page_loads_the_shared_tracking_reader(client):
+    log_in_as(client, "administrator")
+    assert b"js/tracking.js" in client.get("/admin/assignments").data
+
+
+# ---------------------------------------------------------------- reports page and dashboard tiles (issue #34)
+
+def test_reports_page_requires_login(client):
+    response = client.get("/admin/reports")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_reports_page_renders_for_administrator(client):
+    log_in_as(client, "administrator")
+    response = client.get("/admin/reports")
+    assert response.status_code == 200
+    for marker in (b'id="range-form"', b'id="summary-tiles"', b'id="report-status"', b'id="report-category"',
+                   b'id="report-department"', b'id="report-period"', b'id="report-workload"',
+                   b'id="report-pending"', b"js/admin_reports.js", b"css/admin_reports.css"):
+        assert marker in response.data
+
+
+@pytest.mark.parametrize("role", ["resident", "maintenance_staff", "superuser"])
+def test_reports_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/admin/reports")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_admin_dashboard_shows_figures_and_links_to_reports(client):
+    log_in_as(client, "administrator")
+    page = client.get("/admin").data
+    assert b'id="summary-tiles"' in page and b"js/admin_reports.js" in page
+    assert b'href="/admin/reports"' in page
+    assert b"Reports and complaint counts <em>(coming" not in page
+
+
+def test_reports_assets_are_served(client):
+    for path in ("/static/js/admin_reports.js", "/static/css/admin_reports.css"):
+        assert client.get(path).status_code == 200, path

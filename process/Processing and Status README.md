@@ -15,6 +15,8 @@ Flask blueprint on PyMySQL. It uses the existing `db/schema.sql` tables (`compla
 | `routes.py` | HTTP layer: login and role checks, order of checks, one transaction per request, responses, JSON error handler for database failures |
 | `schema.py` | Request validation and lifecycle rules (`STATUSES`, `ALLOWED_TRANSITIONS`, size limits). No Flask or database code |
 | `queries.py` | PyMySQL SQL, one small function per query. Takes a cursor, never commits |
+| `pages.py` | Browser pages for staff (HTML shells only; data and writes go through the API) |
+| `templates/`, `static/` | Page templates, JS and CSS, served by the `processing_pages` blueprint |
 | `__init__.py` | Exports `processing_bp` |
 
 Tests are in `tests/processing/` (`conftest.py` fixtures, `test_processing.py`).
@@ -33,6 +35,23 @@ The module imports `app.access` (`ADMINISTRATOR`, `RESIDENT`, `error`, `role_req
 `db.connection.get_connection`. **Run everything from the repository root**, the folder that holds
 `app/`, `db/` and `process/`. Do not run `routes.py` directly: `app` is then not importable.
 
+## Staff pages (browser)
+
+Registered automatically by `process/routes.py` when `processing_bp` is registered; no change to `create_app()` is needed.
+
+| Page | Who | What it does |
+|---|---|---|
+| `GET /staff/complaints` | `maintenance_staff` | Dashboard of complaints currently assigned to you, with a status filter |
+| `GET /staff/complaints/<id>` | `maintenance_staff` | Details, resolution, history, status button (shown only for transitions in `schema.ALLOWED_TRANSITIONS`), resolution details (required to resolve), optional remarks, and a stand-alone "Add remark" form |
+
+Signed-out visitors are redirected to `/login`; other roles to `/home`. The pages never decide
+access: every read and write goes through the `/api/staff/...` endpoints below, so another staff
+member's complaint returns 403 (shown as a message, with no data or controls) and a change is only
+shown as done after the server has saved it and the page has re-read the complaint.
+
+There is no link to the dashboard on `/staff` yet (that template is outside this module); until one
+is added, staff open `/staff/complaints` directly.
+
 ## Endpoints
 
 Prefix `/api`. Authentication is the server-side session (`session["user_id"]`,
@@ -44,10 +63,22 @@ Prefix `/api`. Authentication is the server-side session (`session["user_id"]`,
 | `PATCH /api/staff/complaints/<id>/status` | `maintenance_staff` currently assigned to the complaint | `{status, remarks?, resolution_details?}` | `200 {status, message, data: {complaint_id, status, updated_at}}` |
 | `GET /api/staff/complaints/<id>` | `maintenance_staff` currently assigned to the complaint | – | `200 {status, data: {…complaint, resolution, history[]}}` (403 if not assigned, 404 if unknown) |
 | `POST /api/staff/complaints/<id>/remarks` | assigned `maintenance_staff`, complaint `assigned` or `in_progress` | `{remarks}` (required, ≤500) | `201 {status, message, data: {complaint_id, status}}`; writes a `status_history` row with old = new status |
+| `GET /api/complaints/<id>/status` | resident (owner), `maintenance_staff` (current assignee), `administrator` (all) | – | `200 {status, data: {complaint_id, status, updated_at}}` |
+| `GET /api/complaints/<id>/history` | same scoping | – | `200 {status, data: {complaint_id, history: [{old_status, new_status, changed_by, remarks, changed_at}]}}`, oldest first |
 | `PATCH /api/complaints/<id>/close` | `resident` who raised it, or `administrator` | `{confirmation: true, closure_notes?}` | `200 {status, message, data: {complaint_id, status, closed_at}}` |
 
 The list shows only complaints whose **current** assignment (`is_current = TRUE`) is the logged-in
 staff member, newest first.
+
+### Tracking (FR-015, FR-016, SEC-002)
+
+Order of checks: login (401) -> role is resident, staff or administrator (403) -> complaint exists
+(404) -> complaint is in the caller's scope (403). The 403 message is fixed and contains nothing
+about the complaint. There is no route to add, change or delete history; the history path is GET
+only.
+
+History order: `changed_at` has one-second resolution, so rows from the same second are ordered by
+lifecycle position (the transition into a status before remarks recorded while in it).
 
 ### Rules
 
@@ -56,6 +87,9 @@ staff member, newest first.
 - Resolving needs non-blank `resolution_details`; a `resolutions` row is saved with it.
 - Closing needs the complaint to be `resolved`, to have a `resolutions` row, and
   `confirmation` to be exactly JSON `true` (`"true"` and `1` are rejected).
+- Every status change, remark and closure is written with the shared
+  `app.tracking.service.record_status_change(cur, ...)` inside the request's transaction. This
+  module has no history writer of its own and only reads `status_history`.
 - Every status change appends a `status_history` row (old status, new status, who, remarks).
   That table is append-only: the module never updates or deletes it.
 - Status values are lowercase and case-sensitive: `In_Progress` is rejected, not converted.
@@ -111,6 +145,7 @@ code. Only login is stood in for: a test-only route sets `session["user_id"]` an
 |---|---|
 | FR-012 | TC-PRC-01, 02: list, own and current assignments only, status filter, 401/403 |
 | FR-013 | TC-PRC-03, 04: allowed and illegal transitions, case-sensitive statuses, 404, unassigned and reassigned staff |
+| FR-015, FR-016 | TC-TRK-01..04 (`test_tracking.py`): status and history per role, 403/404/401, history order (including same-second rows), read-only path, one shared transaction for all callers |
 | FR-014 | TC-PRC-05, 06: resolve saves the resolution; missing or blank details writes nothing; length limits |
 | FR-020 | TC-PRC-07, 08: close, unresolved, missing resolution, missing confirmation |
 | Closure authorization | owner resident and administrator allowed; other resident, staff and anonymous refused |

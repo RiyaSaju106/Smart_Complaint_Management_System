@@ -1,0 +1,18 @@
+/* Admin dashboard tiles and reports page (issue #34). Builds on the shared admin styles in forms.css. */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0 20px; }
+.stat-tile { background: #fff; border: 1px solid var(--line, #dbe3de); border-radius: 12px; padding: 14px 16px; }
+.stat-tile .stat-label { display: block; font-size: 13px; color: var(--muted, #5d6b66); }
+.stat-tile .stat-value { display: block; font-size: 30px; font-weight: 700; line-height: 1.2; margin-top: 4px; color: var(--ink, #1d2a26); font-variant-numeric: tabular-nums; }
+.stat-tile .stat-note { display: block; font-size: 12px; color: var(--muted, #5d6b66); margin-top: 2px; }
+.stat-row.statuses .stat-value { font-size: 22px; }
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 0 20px; }
+@media (max-width: 480px) { .report-grid { grid-template-columns: 1fr; } }
+.data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data-table .muted { color: var(--muted, #5d6b66); }
+.data-table .sub { display: block; color: var(--muted, #5d6b66); font-size: 12px; margin-top: 2px; word-break: break-all; }
+.data-table tfoot td { font-weight: 600; border-bottom: 0; }
+.panel .panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.panel .panel-head h2 { margin: 0; }
+.panel .panel-head select { padding: 6px 8px; border: 1px solid #c9d3ce; border-radius: 6px; font: inherit; }
+.report-note { color: var(--muted, #5d6b66); font-size: 13px; margin: 8px 0 0; }
+.as-of { color: var(--muted, #5d6b66); font-size: 13px; }

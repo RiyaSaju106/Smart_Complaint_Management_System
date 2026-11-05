@@ -14,3 +14,10 @@
 .status-pill.submitted { background: #fdf3e8; color: #8a4a12; }
 .status-pill.resolved, .status-pill.closed { background: #eceff1; color: #4a5560; }
 .pager { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 14px; color: var(--muted); }
+.close-form { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line, #dbe3de); }
+.close-form label { display: block; font-weight: 600; margin: 8px 0; }
+.close-form textarea { display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid #c9d3ce; border-radius: 8px; font: inherit; font-weight: 400; }
+.close-form button.primary { margin-top: 8px; }
+.form-error { margin: 8px 0; padding: 8px 12px; border-radius: 8px; background: #fdecea; color: #8a1c14; font-size: 14px; }
+.form-success { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; background: #e3f1e7; color: #1e5e22; font-size: 14px; }
+.form-error[hidden] { display: none; }

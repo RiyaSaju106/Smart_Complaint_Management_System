@@ -7,6 +7,8 @@ Values are lowercase and case-sensitive, matching db/schema.sql: 'In_Progress' i
 converted.
 """
 
+from datetime import datetime
+
 STATUSES = ("submitted", "assigned", "in_progress", "resolved", "closed")
 
 # Staff-driven lifecycle (SAD 3.4). Closing is a separate endpoint (resident or administrator).
@@ -85,3 +87,39 @@ def parse_remark(data):
     if remarks is None:
         return None, "'remarks' is required."
     return remarks, None
+
+def parse_search_filters(args):
+    """Validate query parameters for searching and filtering complaints (FR-017, FR-018)."""
+    search_query = args.get("q", "").strip() or None
+    category = args.get("category", "").strip() or None
+    status = args.get("status", "").strip() or None
+    
+    if status and status not in STATUSES:
+        return None, f"Invalid status filter: {status}"
+        
+    date_from_str = args.get("date_from", "").strip()
+    date_to_str = args.get("date_to", "").strip()
+    
+    date_from, date_to = None, None
+    try:
+        if date_from_str:
+            date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
+        if date_to_str:
+            date_to = datetime.strptime(date_to_str, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59
+            )
+
+    except ValueError:
+        return None, "Invalid date format. Expected YYYY-MM-DD."
+
+    if date_from and date_to and date_from > date_to:
+        return None, "'date_from' must not be after 'date_to'."
+
+
+    return {
+        "q": search_query,
+        "category": category,
+        "status": status,
+        "date_from": date_from,
+        "date_to": date_to
+    }, None

@@ -9,7 +9,7 @@ Status history is not written here: routes call the shared record_status_change(
 Timestamps are not set here; MySQL fills them (DEFAULT / ON UPDATE CURRENT_TIMESTAMP).
 """
 import uuid
-
+from app.access import MAINTENANCE_STAFF
 
 def list_assigned(cur, staff_id, status=None):
     """Complaints whose *current* assignment is this staff member, newest first."""
@@ -107,4 +107,49 @@ def list_history(cur, complaint_id):
         "(old_status <=> new_status), history_id",
         (complaint_id,),
     )
+    return cur.fetchall()
+
+def search_complaints(cur, staff_id, filters, role="maintenance_staff"):
+    """Search and filter complaints based on permitted criteria (FR-017, FR-018)."""
+    sql = (
+        "SELECT c.complaint_id, c.resident_id, c.title, c.description, c.category_id, "
+        "cat.name AS category, c.location, c.status, c.created_at, c.updated_at "
+        "FROM complaints c "
+        "JOIN categories cat ON cat.category_id = c.category_id "
+    )
+    
+    params = []
+    conditions = []
+
+    if role == MAINTENANCE_STAFF:
+        sql += "JOIN assignments a ON a.complaint_id = c.complaint_id AND a.is_current = TRUE "
+        conditions.append("a.staff_id = %s")
+        params.append(staff_id)
+
+    if filters["q"]:
+        conditions.append("(c.title LIKE %s OR c.description LIKE %s)")
+        term = f"%{filters['q']}%"
+        params.extend([term, term])
+        
+    if filters["category"]:
+        conditions.append("c.category_id = %s")
+        params.append(filters["category"])
+        
+    if filters["status"]:
+        conditions.append("c.status = %s")
+        params.append(filters["status"])
+        
+    if filters["date_from"]:
+        conditions.append("c.created_at >= %s")
+        params.append(filters["date_from"])
+        
+    if filters["date_to"]:
+        conditions.append("c.created_at <= %s")
+        params.append(filters["date_to"])
+
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
+        
+    sql += " ORDER BY c.created_at DESC"
+    cur.execute(sql, params)
     return cur.fetchall()

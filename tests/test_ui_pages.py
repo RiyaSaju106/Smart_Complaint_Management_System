@@ -300,3 +300,42 @@ def test_admin_dashboard_shows_figures_and_links_to_reports(client):
 def test_reports_assets_are_served(client):
     for path in ("/static/js/admin_reports.js", "/static/css/admin_reports.css"):
         assert client.get(path).status_code == 200, path
+
+
+# ---------------------------------------------------------------- feedback form (issue #61)
+
+FEEDBACK_PAGE = "/complaints/62fd65d9-32b2-4f1c-bc04-35dd074d072d/feedback"
+
+
+def test_feedback_page_requires_login(client):
+    response = client.get(FEEDBACK_PAGE)
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_feedback_page_renders_for_resident(client):
+    log_in_as(client, "resident")
+    response = client.get(FEEDBACK_PAGE)
+    assert response.status_code == 200
+    for marker in (b'data-complaint-id="62fd65d9-32b2-4f1c-bc04-35dd074d072d"', b'id="feedback-form"',
+                   b'id="submitted-view"', b'name="comment"', b"js/complaint_feedback.js"):
+        assert marker in response.data
+    assert response.data.count(b'name="rating"') == 5
+
+
+@pytest.mark.parametrize("role", ["maintenance_staff", "administrator", "superuser"])
+def test_feedback_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get(FEEDBACK_PAGE)
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_feedback_page_escapes_the_complaint_id(client):
+    log_in_as(client, "resident")
+    response = client.get('/complaints/"><script>alert(1)<%2Fscript>/feedback')
+    assert b"<script>alert(1)" not in response.data
+
+
+def test_feedback_script_is_served(client):
+    assert client.get("/static/js/complaint_feedback.js").status_code == 200

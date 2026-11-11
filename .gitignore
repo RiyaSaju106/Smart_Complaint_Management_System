@@ -4,3 +4,10 @@ __pycache__/
 .venv/
 venv/
 .env
+instance/
+.vscode/
+.idea/
+.coverage
+htmlcov/
+*.log
+.DS_Store

@@ -1,6 +1,6 @@
 """Browser pages for SCMS: login, register and the complaint form (issue #54), category and
 department management for administrators (issue #55), and complaint assignment for
-administrators (issue #56), and the notification list for every role (issue #58).
+administrators (issue #56), the notification list for every role (issue #58), and the resident feedback form (issue #61).
 
 These routes only render HTML. All data goes through the existing /api/...endpoints, which
 keep doing the real validation and role checks. A page here redirects to /login when nobody is
@@ -72,6 +72,15 @@ def admin_categories_page():
     return render_template("admin_categories.html", name=session.get("name"))
 
 
+@ui_bp.route("/admin/users")
+def admin_users_page():
+    if "user_id" not in session:
+        return redirect(url_for("ui.login_page"))
+    if session.get("role") != ADMINISTRATOR:
+        return redirect(url_for("roles.home"))
+    return render_template("admin_users.html", name=session.get("name"))
+
+
 @ui_bp.route("/admin/reports")
 def admin_reports_page():
     if "user_id" not in session:
@@ -100,3 +109,12 @@ def notifications_page():
     return render_template(
         "notifications.html", header_class=header[0], role_label=header[1], name=session.get("name")
     )
+
+
+@ui_bp.route("/complaints/<complaint_id>/feedback")
+def complaint_feedback_page(complaint_id):
+    if "user_id" not in session:
+        return redirect(url_for("ui.login_page"))
+    if session.get("role") != RESIDENT:
+        return redirect(url_for("roles.home"))
+    return render_template("complaint_feedback.html", complaint_id=complaint_id, name=session.get("name"))

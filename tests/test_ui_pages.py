@@ -106,6 +106,44 @@ def test_admin_dashboard_links_to_category_management(client):
     assert b'href="/admin/categories"' in client.get("/admin").data
 
 
+# ---------------------------------------------------------------- user and staff management page (issue #62)
+
+def test_user_admin_page_requires_login(client):
+    response = client.get("/admin/users")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_user_admin_page_renders_for_administrator(client):
+    log_in_as(client, "administrator")
+    response = client.get("/admin/users")
+    assert response.status_code == 200
+    for marker in (b'id="create-form"', b'name="role"', b'name="email"', b'name="password"',
+                   b'name="contact_number"', b'name="unit_address"', b'name="department_id"',
+                   b'id="filter-form"', b'id="user-rows"', b"js/admin_users.js", b"css/admin_users.css"):
+        assert marker in response.data
+
+
+@pytest.mark.parametrize("role", ["resident", "maintenance_staff", "superuser"])
+def test_user_admin_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get("/admin/users")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_admin_dashboard_links_to_user_management(client):
+    log_in_as(client, "administrator")
+    page = client.get("/admin").data
+    assert b'href="/admin/users"' in page
+    assert b"Manage users and staff <em>(coming" not in page
+
+
+def test_user_admin_assets_are_served(client):
+    for path in ("/static/js/admin_users.js", "/static/css/admin_users.css"):
+        assert client.get(path).status_code == 200, path
+
+
 # ---------------------------------------------------------------- assignment page (issue #56)
 
 def test_assignment_page_requires_login(client):
@@ -262,3 +300,42 @@ def test_admin_dashboard_shows_figures_and_links_to_reports(client):
 def test_reports_assets_are_served(client):
     for path in ("/static/js/admin_reports.js", "/static/css/admin_reports.css"):
         assert client.get(path).status_code == 200, path
+
+
+# ---------------------------------------------------------------- feedback form (issue #61)
+
+FEEDBACK_PAGE = "/complaints/62fd65d9-32b2-4f1c-bc04-35dd074d072d/feedback"
+
+
+def test_feedback_page_requires_login(client):
+    response = client.get(FEEDBACK_PAGE)
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/login")
+
+
+def test_feedback_page_renders_for_resident(client):
+    log_in_as(client, "resident")
+    response = client.get(FEEDBACK_PAGE)
+    assert response.status_code == 200
+    for marker in (b'data-complaint-id="62fd65d9-32b2-4f1c-bc04-35dd074d072d"', b'id="feedback-form"',
+                   b'id="submitted-view"', b'name="comment"', b"js/complaint_feedback.js"):
+        assert marker in response.data
+    assert response.data.count(b'name="rating"') == 5
+
+
+@pytest.mark.parametrize("role", ["maintenance_staff", "administrator", "superuser"])
+def test_feedback_page_sends_other_roles_home(client, role):
+    log_in_as(client, role)
+    response = client.get(FEEDBACK_PAGE)
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/home")
+
+
+def test_feedback_page_escapes_the_complaint_id(client):
+    log_in_as(client, "resident")
+    response = client.get('/complaints/"><script>alert(1)<%2Fscript>/feedback')
+    assert b"<script>alert(1)" not in response.data
+
+
+def test_feedback_script_is_served(client):
+    assert client.get("/static/js/complaint_feedback.js").status_code == 200

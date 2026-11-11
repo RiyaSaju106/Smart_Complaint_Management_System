@@ -205,6 +205,12 @@ async function openDetail(complaint, tr, opener, notice) {
     const view = button("View", () => openDetail(complaint, tr, view), "primary");
     view.setAttribute("aria-expanded", "false");
     actions.appendChild(view);
+    // Feedback opens once staff have resolved the complaint (#61); the feedback page and API re-check this.
+    if (complaint.status === "resolved" || complaint.status === "closed") {
+      actions.appendChild(button("Give feedback", () => {
+        window.location.href = "/complaints/" + encodeURIComponent(complaint.complaint_id) + "/feedback";
+      }));
+    }
     tr.append(titleCell, el("td", complaint.category.name), statusCell,
       el("td", formatDate(complaint.created_at)), actions);
     return tr;

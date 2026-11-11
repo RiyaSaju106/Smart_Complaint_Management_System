@@ -9,6 +9,7 @@
   const list = document.getElementById("notification-list");
   const summary = document.getElementById("unread-summary");
   const markAll = document.getElementById("mark-all-read");
+  const FEEDBACK_EVENTS = ["COMPLAINT_RESOLVED", "COMPLAINT_CLOSED"]; // sent to the resident only
 
   // Signed out (401): leave the page.
   function leaveIfUnauthorized(result) {
@@ -48,6 +49,11 @@
     const meta = el("p", null, "meta");
     meta.appendChild(el("time", formatDate(notification.created_at)));
     if (notification.complaint_id) meta.appendChild(el("span", "Complaint ID: " + notification.complaint_id));
+    if (notification.complaint_id && FEEDBACK_EVENTS.includes(notification.event)) {
+      const link = el("a", "Give feedback");
+      link.href = "/complaints/" + encodeURIComponent(notification.complaint_id) + "/feedback";
+      meta.appendChild(link);
+    }
     body.appendChild(meta);
     li.appendChild(body);
     if (!notification.is_read) {

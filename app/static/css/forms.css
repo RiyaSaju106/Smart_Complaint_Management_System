@@ -40,6 +40,7 @@ button.primary.block { width: 100%; }
 .msg { padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
 .msg.error { background: #fdecea; color: #8a1f17; border: 1px solid #f5c2bd; }
 .msg.success { background: #e8f5e9; color: #1e5e22; border: 1px solid #b7dfb9; }
+.msg.info { background: #eef3ef; color: var(--green-dark); border: 1px solid var(--line); }
 .nav a { color: #fff; margin-left: 16px; text-decoration: underline; cursor: pointer; }
 .link-row { margin-top: 16px; font-size: 14px; }
 .link-row.center { text-align: center; margin: 0; }
@@ -277,3 +278,16 @@ button.small.danger:hover { background: #fdecea; }
 .notification-list .text { margin: 0; overflow-wrap: anywhere; }
 .notification-list li.unread .text { font-weight: 600; }
 .notification-list .meta { margin: 4px 0 0; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; overflow-wrap: anywhere; }
+
+/* ---------- Resident feedback form (issue #61) ---------- */
+.complaint-summary { margin: 0 0 18px; }
+.complaint-summary .cid { overflow-wrap: anywhere; }
+.star-rating { border: 0; margin: 0 0 16px; padding: 0; }
+.star-rating legend { font-weight: 600; font-size: 14px; padding: 0; margin-bottom: 6px; }
+.star-rating .stars { display: flex; gap: 4px; }
+.star-rating label { position: relative; font-size: 34px; line-height: 1; color: #c9d3ce; cursor: pointer; border-radius: 6px; }
+.star-rating input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.star-rating label:has(input:checked), .star-rating label:has(~ label input:checked) { color: #d9941f; }
+.star-rating label:has(input:focus-visible) { outline: 2px solid var(--green); outline-offset: 2px; }
+.stars-readonly { font-size: 26px; color: #d9941f; letter-spacing: 2px; margin: 0 0 8px; }
+.feedback-comment { margin: 0 0 8px; overflow-wrap: anywhere; white-space: pre-wrap; }

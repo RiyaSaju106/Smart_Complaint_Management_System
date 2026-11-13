@@ -177,22 +177,24 @@ def submit_complaint():
     except pymysql.err.IntegrityError:
         conn.rollback()
 
-        # Covers two concurrent retries using the same key.
+        # Covers concurrent retries using the same key.
         if idempotency_key is not None:
-            with conn.cursor() as cur:
-                existing = queries.get_complaint(
-                    cur,
-                    complaint_id,
-                )
+            # IMPORTANT: Establish a fresh transaction/cursor snapshot 
+            # to see the row committed by the winning concurrent thread.
+            try:
+                with conn.cursor() as cur:
+                    existing = queries.get_complaint(
+                        cur,
+                        complaint_id,
+                    )
 
-            if (
-                existing is not None
-                and _same_submission(existing, parsed)
-            ):
-                return _submission_response(
-                    existing,
-                    created=False,
-                )
+                if existing is not None and _same_submission(existing, parsed):
+                    return _submission_response(
+                        existing,
+                        created=False,
+                    )
+            except Exception:
+                pass
 
         return error(
             409,
@@ -219,21 +221,10 @@ def submit_complaint():
     finally:
         conn.close()
 
-    # Do NOT implement #26 or #28 here.
-    #
-    # #26 will add the initial NULL -> submitted
-    # StatusHistory entry through the shared
-    # record_status_change() helper.
-    #
-    # #28 will add COMPLAINT_SUBMITTED notification
-    # delivery after the complaint transaction commits.
-
     return _submission_response(
         row,
         created=True,
     )
-
-
 def _allowed_extensions():
     return set(
         current_app.config[

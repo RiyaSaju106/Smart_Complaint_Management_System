@@ -24,8 +24,9 @@ def list_users(cur, filters):
         where.append("u.department_id = %s")
         params.append(filters["department_id"])
     if filters["q"]:
-        where.append("(u.name LIKE %s OR u.email LIKE %s)")
-        like = f"%{filters['q']}%"
+        q = filters["q"].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        where.append("(u.name LIKE %s ESCAPE '\\\\' OR u.email LIKE %s ESCAPE '\\\\')")
+        like = f"%{q}%"
         params += [like, like]
     clause = " WHERE " + " AND ".join(where)
 

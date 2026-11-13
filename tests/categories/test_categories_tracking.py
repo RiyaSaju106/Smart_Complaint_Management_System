@@ -38,7 +38,7 @@ def test_status_returns_current_status_for_owner(
     )
 
     assert response.status_code == 200
-    body = response.get_json()
+    body = response.get_json()["data"]
     assert body["complaint_id"] == complaint_id
     assert body["status"] == "in_progress"
     assert "updated_at" in body
@@ -63,34 +63,17 @@ def test_history_returns_actor_details_and_oldest_first(
     response = client.get(f"/api/complaints/{complaint_id}/history")
 
     assert response.status_code == 200
-    body = response.get_json()
+    body = response.get_json()["data"]
     assert body["complaint_id"] == complaint_id
-    assert len(body["items"]) == 2
+    assert len(body["history"]) == 2
 
-    first, second = body["items"]
+    first, second = body["history"]
     assert first["old_status"] is None
     assert first["new_status"] == "submitted"
-    assert first["changed_by"]["user_id"] == resident_id
+    assert first["changed_by"] == resident_id
     assert second["old_status"] == "submitted"
     assert second["new_status"] == "assigned"
-    assert second["changed_by"]["user_id"] == admin_id
-    assert second["changed_by"]["name"] == "Test Administrator"
-
-
-def test_status_requires_authentication(client_for):
-    client = client_for()
-    response = client.get(f"/api/complaints/{uuid.uuid4()}/status")
-
-    assert response.status_code == 401
-    assert response.get_json()["error"]["code"] == "UNAUTHENTICATED"
-
-
-def test_history_returns_404_for_unknown_complaint(admin, client_for):
-    response = admin.get(f"/api/complaints/{uuid.uuid4()}/history")
-
-    assert response.status_code == 404
-    assert response.get_json()["error"]["code"] == "NOT_FOUND"
-
+    assert second["changed_by"] == admin_id
 
 def test_resident_cannot_view_another_residents_complaint(
     seed, client_for

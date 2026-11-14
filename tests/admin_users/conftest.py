@@ -66,6 +66,7 @@ def app(monkeypatch, conn, test_db_name, tmp_path):
     test_connection = lambda: get_connection(database=test_db_name)  # noqa: E731
     monkeypatch.setattr("app.admin_users.routes.get_connection", test_connection)
     monkeypatch.setattr("app.auth.routes.get_connection", test_connection)  # for the login checks
+    monkeypatch.setattr("app.complaints.routes.get_connection", test_connection)
     flask_app = create_app()
     flask_app.config.update(TESTING=True, ATTACHMENT_UPLOAD_DIR=str(tmp_path))
     return flask_app

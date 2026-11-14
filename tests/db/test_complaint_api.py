@@ -2,6 +2,7 @@ import io
 import uuid
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor
 
 from app import create_app
 from db.passwords import hash_password
@@ -165,6 +166,7 @@ def valid_complaint(
 
 
 def complaint_count(conn):
+    conn.commit() 
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -464,7 +466,6 @@ def test_retry_with_same_idempotency_key_does_not_duplicate(
 
     assert complaint_count(conn) == 1
 
-
 def test_reusing_idempotency_key_for_different_payload_is_rejected(
     client,
     conn,
@@ -511,7 +512,6 @@ def test_reusing_idempotency_key_for_different_payload_is_rejected(
     )
 
     assert complaint_count(conn) == 1
-
 
 def create_complaint_for_attachment(
     client,

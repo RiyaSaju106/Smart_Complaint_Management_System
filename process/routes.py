@@ -99,6 +99,39 @@ def assigned_complaints():
     ]
     return jsonify({"status": "success", "data": data}), 200
 
+@processing_bp.get("/staff/complaints/<complaint_id>")
+@role_required(MAINTENANCE_STAFF)
+def complaint_detail(complaint_id):
+    """Detail, resolution and history of one complaint, only for its current assignee."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            detail = queries.get_detail(cur, complaint_id)
+            if detail is None:
+                return error(404, "NOT_FOUND", "Complaint ID does not exist.")
+            if queries.current_staff_id(cur, complaint_id) != session["user_id"]:
+                return error(403, "FORBIDDEN", "You are not assigned to this complaint.")
+            resolution = queries.get_resolution(cur, complaint_id)
+            history = queries.list_history(cur, complaint_id)
+    finally:
+        conn.close()
+
+    data = {k: detail[k] for k in
+            ("complaint_id", "title", "description", "location", "status", "category", "category_id")}
+    data["created_at"] = _iso(detail["created_at"])
+    data["updated_at"] = _iso(detail["updated_at"])
+    data["resolution"] = None if resolution is None else {
+        "resolved_by": resolution["resolved_by"],
+        "details": resolution["details"],
+        "resolved_at": _iso(resolution["resolved_at"]),
+    }
+    data["history"] = [
+        {"old_status": h["old_status"], "new_status": h["new_status"],
+         "changed_by": h["changed_by"], "remarks": h["remarks"], "changed_at": _iso(h["changed_at"])}
+        for h in history
+    ]
+    return jsonify({"status": "success", "data": data}), 200
+
 
 @processing_bp.patch("/staff/complaints/<complaint_id>/status")
 @role_required(MAINTENANCE_STAFF)
@@ -158,41 +191,6 @@ def update_status(complaint_id):
             "updated_at": _iso(updated_at),
         },
     }), 200
-
-
-@processing_bp.get("/staff/complaints/<complaint_id>")
-@role_required(MAINTENANCE_STAFF)
-def complaint_detail(complaint_id):
-    """Detail, resolution and history of one complaint, only for its current assignee."""
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            detail = queries.get_detail(cur, complaint_id)
-            if detail is None:
-                return error(404, "NOT_FOUND", "Complaint ID does not exist.")
-            if queries.current_staff_id(cur, complaint_id) != session["user_id"]:
-                return error(403, "FORBIDDEN", "You are not assigned to this complaint.")
-            resolution = queries.get_resolution(cur, complaint_id)
-            history = queries.list_history(cur, complaint_id)
-    finally:
-        conn.close()
-
-    data = {k: detail[k] for k in
-            ("complaint_id", "title", "description", "location", "status", "category", "category_id")}
-    data["created_at"] = _iso(detail["created_at"])
-    data["updated_at"] = _iso(detail["updated_at"])
-    data["resolution"] = None if resolution is None else {
-        "resolved_by": resolution["resolved_by"],
-        "details": resolution["details"],
-        "resolved_at": _iso(resolution["resolved_at"]),
-    }
-    data["history"] = [
-        {"old_status": h["old_status"], "new_status": h["new_status"],
-         "changed_by": h["changed_by"], "remarks": h["remarks"], "changed_at": _iso(h["changed_at"])}
-        for h in history
-    ]
-    return jsonify({"status": "success", "data": data}), 200
-
 
 @processing_bp.post("/staff/complaints/<complaint_id>/remarks")
 @role_required(MAINTENANCE_STAFF)

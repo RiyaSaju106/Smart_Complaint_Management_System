@@ -291,3 +291,5 @@ button.small.danger:hover { background: #fdecea; }
 .star-rating label:has(input:focus-visible) { outline: 2px solid var(--green); outline-offset: 2px; }
 .stars-readonly { font-size: 26px; color: #d9941f; letter-spacing: 2px; margin: 0 0 8px; }
 .feedback-comment { margin: 0 0 8px; overflow-wrap: anywhere; white-space: pre-wrap; }
+/* One brand colour for every role; the badge in the header still shows the role. */
+body header.resident, body header.staff, body header.admin { background: var(--green); }

@@ -8,7 +8,7 @@
 | Module | Owns | Does not own | Requirements |
 |---|---|---|---|
 | Category/Assignment | Predefined categories; admin create, edit, deactivate and delete of categories; departments and their staff lists; assigning and reassigning a complaint to a department or staff member; the `submitted` → `assigned` transition on first assignment | Creating complaints (Complaint module); staff status updates, resolution and closure (Processing/Status module); sending notifications (Notification module) | FR-009, FR-010, FR-011 |
-| Search/Tracking | Current status of a complaint; reading the status/action history; search by Complaint ID, title or keyword; filtering by category, status, department and date; the shared `record_status_change` helper that every module uses to write history | Changing complaint data; deciding which status transitions are allowed (Processing/Status module) | FR-015, FR-016, FR-017, FR-018 |
+| Search/Tracking | Current status of a complaint and the status/action history (served by the Processing/Status module's routes since #26); search by Complaint ID, title or keyword; filtering by category, status, department and date; the shared `record_status_change` helper that every module uses to write history; the role-scope rule for searches (`app/tracking/scope.py`) | Changing complaint data; deciding which status transitions are allowed (Processing/Status module) | FR-015, FR-016, FR-017, FR-018 |
 
 ### Tables
 
@@ -183,34 +183,43 @@ Errors:
 
 ### 4.1 Current status (FR-015)
 
-`GET /api/complaints/{complaint_id}/status`
+`GET /api/complaints/{complaint_id}/status`: any authenticated role, within the role scope above. **Implemented (#26)**, served by `process/routes.py` (`complaint_status`).
 
-`200` → `{"complaint_id": "…", "status": "in_progress", "updated_at": "2026-10-14T11:00:00"}`
+```json
+200
+{"status": "success", "data": {"complaint_id": "…", "status": "in_progress", "updated_at": "2026-10-14T11:00:00"}}
+```
 
 Errors:
-- `403 FORBIDDEN`: the complaint exists but is outside the caller's scope; no complaint data in the body
+- `401 UNAUTHENTICATED`: not logged in
+- `403 FORBIDDEN`: unknown role, or the complaint exists but is outside the caller's scope. The body has a fixed message and no complaint data
 - `404 NOT_FOUND`: the complaint does not exist
 
 ### 4.2 Status/action history (FR-016)
 
-`GET /api/complaints/{complaint_id}/history`
+`GET /api/complaints/{complaint_id}/history`: same access rules as 4.1. **Implemented (#26)**, served by `process/routes.py` (`complaint_history`).
 
-Returns the rows in time order (oldest first).
+Returns the rows oldest first. `changed_at` has one-second resolution, so rows from the same second are ordered by lifecycle position, so a transition comes before remarks recorded in the new status.
 
 ```json
 200
 {
-  "complaint_id": "…",
-  "items": [
-    {"old_status": null, "new_status": "submitted", "changed_by": {"user_id": "…", "name": "Demo Resident"}, "remarks": null, "changed_at": "2026-10-14T09:00:00"},
-    {"old_status": "submitted", "new_status": "assigned", "changed_by": {"user_id": "…", "name": "Demo Administrator"}, "remarks": null, "changed_at": "2026-10-14T10:00:00"}
-  ]
+  "status": "success",
+  "data": {
+    "complaint_id": "…",
+    "history": [
+      {"old_status": null, "new_status": "submitted", "changed_by": "<user_id>", "remarks": null, "changed_at": "2026-10-14T09:00:00"},
+      {"old_status": "submitted", "new_status": "assigned", "changed_by": "<user_id>", "remarks": null, "changed_at": "2026-10-14T10:00:00"}
+    ]
+  }
 }
 ```
 
-Errors: 403 and 404, as in 4.1.
+`changed_by` is the user ID of whoever made the change. The browser pages read both this format and the earlier draft format (`items` with `changed_by: {user_id, name}`) through `app/static/js/tracking.js`. A resident's own changes show as "You" and anyone else's as "SCMS staff".
 
-History is read-only. No `PUT`, `PATCH` or `DELETE` route exists, so Flask returns **405** (see 5).
+Errors: 401, 403 and 404, as in 4.1.
+
+History is read-only. No `PUT`, `PATCH` or `DELETE` route exists, so Flask returns **405** (TC-TRK-04). Every status change writes its row through `record_status_change` (section 1), which only ever inserts.
 
 ### 4.3 Search and filter (FR-017, FR-018)
 

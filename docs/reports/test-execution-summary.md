@@ -1,12 +1,12 @@
 # SCMS test execution summary
 
-**Run date:** 2026-11-15 · **Command:** `python -m pytest --junitxml=reports/junit.xml --cov` (same as `.github/workflows/ci.yml`) · **Database:** MySQL 8 test database · **Duration:** 89 s
+**Run date:** 2026-11-15 · **Command:** `python -m pytest --junitxml=reports/junit.xml --cov` (same as `.github/workflows/ci.yml`) · **Database:** MySQL 8 test database · **Duration:** 88 s
 
 ## Overall
 
 | Tests | Passed | Failed | Expected failures (xfail) | Pass rate | Coverage (lines + branches) | Line coverage | Branch coverage |
 |---|---|---|---|---|---|---|---|
-| 753 | 750 | 0 | 3 | 99.6% | 86.8% | 87.4% | 85.0% |
+| 753 | 750 | 0 | 3 | 99.6% | 88.3% | 88.7% | 86.9% |
 
 The 3 expected failures are documented known limitations (marked `xfail` in `tests/admin_users/test_security_hardening.py`), not regressions:
 1. A deactivated user keeps an existing session until it expires (SEC-004).
@@ -66,7 +66,7 @@ The 3 expected failures are documented known limitations (marked `xfail` in `tes
 
 | Package | Lines | Covered | Coverage |
 |---|---|---|---|
-| `app (factory, access helpers)` | 60 | 60 | 100.0% |
+| `app (factory, access helpers)` | 59 | 59 | 100.0% |
 | `app/admin_users` | 257 | 253 | 98.4% |
 | `app/auth` | 102 | 91 | 89.2% |
 | `app/categories` | 307 | 282 | 91.9% |
@@ -75,12 +75,12 @@ The 3 expected failures are documented known limitations (marked `xfail` in `tes
 | `app/notifications` | 163 | 146 | 89.6% |
 | `app/reports` | 184 | 183 | 99.5% |
 | `app/roles` | 31 | 31 | 100.0% |
-| `app/tracking` | 180 | 143 | 79.4% |
+| `app/tracking` | 135 | 134 | 99.3% |
 | `app/ui` | 78 | 77 | 98.7% |
 | `app/users` | 72 | 58 | 80.6% |
 | `db (schema, seeds, helpers)` | 219 | 106 | 48.4% |
 | `process (Processing/Status)` | 363 | 324 | 89.3% |
-| **Total** | **2296** | **2006** | **87.4%** |
+| **Total** | **2250** | **1996** | **88.7%** |
 
 Full line-by-line report: open `coverage/index.html` in this folder.
 

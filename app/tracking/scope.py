@@ -4,8 +4,9 @@
   maintenance_staff  complaints whose *current* assignment names them
   administrator      every complaint
 
-This is the same rule as _can_view_complaint in routes.py (#26), written as a SQL condition so a
-search can apply it to many rows at once instead of checking complaints one by one.
+This is the same rule the status and history endpoints apply to a single complaint
+(_tracking_access in process/routes.py), written as a SQL condition so a search can apply it to
+many rows at once instead of checking complaints one by one.
 """
 from app.access import ADMINISTRATOR, MAINTENANCE_STAFF, RESIDENT
 

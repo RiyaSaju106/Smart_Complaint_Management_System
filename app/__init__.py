@@ -65,7 +65,6 @@ def create_app():
     from app.notifications.routes import notifications_bp
     from app.feedback import feedback_bp
     from app.tracking import tracking_bp
-    from app.tracking import routes as tracking_routes
     from app.tracking import search as tracking_search
     from app.reports import reports_bp
     from app.ui import ui_bp            

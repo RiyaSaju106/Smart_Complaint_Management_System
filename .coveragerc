@@ -1,0 +1,15 @@
+# Coverage settings for `pytest --cov` (local runs and .github/workflows/ci.yml).
+[run]
+source =
+    app
+    process
+    db
+branch = True
+
+[report]
+show_missing = True
+skip_empty = True
+precision = 1
+
+[html]
+title = SCMS test coverage

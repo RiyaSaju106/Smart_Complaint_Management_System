@@ -11,3 +11,5 @@ instance/
 htmlcov/
 *.log
 .DS_Store
+# Local/CI test output (the committed copy lives in docs/reports/)
+/reports/

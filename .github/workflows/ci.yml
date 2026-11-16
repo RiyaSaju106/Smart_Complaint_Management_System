@@ -1,0 +1,101 @@
+# Continuous integration: run the full pytest suite with coverage against a real MySQL 8 database.
+# Reports (JUnit XML, coverage XML and HTML) are uploaded as build artifacts on every run.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest + coverage (MySQL 8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+          MYSQL_DATABASE: scms_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    # CI-only throwaway values; the database lives only for this job. Never real credentials.
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: scms_db
+      TEST_DB_NAME: scms_test_db
+      DB_USER: root
+      DB_PASSWORD: ci-root-password
+      SECRET_KEY: ci-only-secret-key
+      SESSION_COOKIE_SECURE: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        # cryptography lets PyMySQL use MySQL 8's default caching_sha2_password login.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt cryptography
+
+      - name: Create the test database
+        run: |
+          mysql -h 127.0.0.1 -uroot -p"$DB_PASSWORD" \
+            -e "CREATE DATABASE IF NOT EXISTS $TEST_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+
+      - name: Apply the schema to the app database
+        run: python -m db.apply_schema
+
+      - name: Run tests with coverage
+        run: |
+          mkdir -p reports
+          python -m pytest \
+            --junitxml=reports/junit.xml \
+            --cov --cov-report=term --cov-report=xml:reports/coverage.xml --cov-report=html:reports/coverage-html \
+            -o junit_family=xunit2
+
+      - name: Job summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os, xml.etree.ElementTree as ET
+          print("## Test results")
+          if os.path.exists("reports/junit.xml"):
+              root = ET.parse("reports/junit.xml").getroot()
+              suite = root if root.tag == "testsuite" else root.find("testsuite")
+              total, fail, err, skip = (int(suite.get(k, 0)) for k in ("tests", "failures", "errors", "skipped"))
+              print(f"- Tests: **{total}** - passed {total - fail - err - skip}, failed {fail}, errors {err}, skipped/xfailed {skip}")
+          if os.path.exists("reports/coverage.xml"):
+              rate = float(ET.parse("reports/coverage.xml").getroot().get("line-rate", 0))
+              print(f"- Line coverage: **{rate * 100:.1f}%**")
+          PY
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+          retention-days: 30

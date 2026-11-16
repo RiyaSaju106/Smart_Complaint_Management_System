@@ -63,13 +63,17 @@ Python 3 · Flask · MySQL 8 · PyMySQL · Jinja2 templates · plain HTML/CSS/Ja
 ## Running the tests
 
 Tests run against a separate database (`TEST_DB_NAME` in `.env`), never the app database.
+The full suite takes several minutes.
 
 ```bash
-python -m pytest tests --import-mode=importlib -q
+python -m pytest tests -q
 ```
 
-Test reports (JUnit XML and coverage) are in `docs/reports/`. The same suite runs on every push and
-pull request through GitHub Actions.
+- **Test reports** (JUnit XML, coverage, execution summary and the STP-to-test mapping) are in
+  [`docs/reports/`](docs/reports/). `scripts/build_test_reports.py` rebuilds them from a new run (usage is in the
+  script header).
+- **Continuous integration:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the same suite on every
+  push and pull request.
 
 ## Project structure
 
@@ -78,7 +82,8 @@ app/             Flask application: auth, users, complaints, categories and assi
                  notifications, feedback, reports, admin_users, ui (pages), templates, static
 process/         Complaint processing and status module, with the staff pages
 db/              MySQL schema, seed scripts, connection and password helpers
-tests/           pytest suites per module
+tests/           pytest suites per module, plus the security / NFR evidence
+scripts/         Tooling, including the test report builder
 Documentation/   SRS, SAD, STP, use case diagram, API contracts, deviations
 docs/reports/    Generated test and coverage reports
 demo/            Sprint demo videos
@@ -88,9 +93,11 @@ demo/            Sprint demo videos
 
 - Requirements: [`Documentation/SCMS_SRS_v1.1.pdf`](Documentation/SCMS_SRS_v1.1.pdf) and
   [`Documentation/SCMS_Use_Case_Diagram.pdf`](Documentation/SCMS_Use_Case_Diagram.pdf)
-- Design: [`Documentation/SAD/SCMS_Final_SAD.pdf`](Documentation/SAD/SCMS_Final_SAD.pdf)
+- Design: [`Documentation/SCMS_SAD_v1.1.pdf`](Documentation/SCMS_SAD_v1.1.pdf)
 - Test plan: [`Documentation/STP/SCMS_Final_STP.pdf`](Documentation/STP/SCMS_Final_STP.pdf)
+  (editable source: [`SCMS_Final_STP.docx`](Documentation/STP/SCMS_Final_STP.docx))
 - API contracts: [`Documentation/API/`](Documentation/API/)
+- Test results: [`docs/reports/`](docs/reports/)
 - Deviations from the original documents: [`Documentation/DEVIATIONS.md`](Documentation/DEVIATIONS.md)
 
 ## Known limitations
